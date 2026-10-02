@@ -2,7 +2,7 @@
 // plus schemas/tools/index.json with names, titles and descriptions.
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { EngineAdapter } from "../adapters/types.js";
@@ -12,7 +12,10 @@ import { createServer } from "../server.js";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const dataset = process.env.EVE_DOGMA_DATASET ?? "/workspace/exct-eve/data/dataset-3569502.json.gz";
 const noEngine = new Proxy({ kind: "none" }, { get: (t: any, k) => t[k] ?? (() => Promise.reject(new Error("no engine"))) }) as EngineAdapter;
-const server = createServer({ ds: new Dataset(dataset), engine: noEngine, defaultSkillLevel: 5, maxBatch: 400 });
+// Tool schemas do not depend on the dataset; without one (e.g. in CI) a stub that throws on use is enough.
+const noDataset = new Proxy({}, { get: (_t, k) => (k === "then" ? undefined : () => { throw new Error("no dataset"); }) }) as unknown as Dataset;
+const ds = existsSync(dataset) ? new Dataset(dataset) : noDataset;
+const server = createServer({ ds, engine: noEngine, defaultSkillLevel: 5, maxBatch: 400 });
 const [a, b] = InMemoryTransport.createLinkedPair();
 await server.connect(a);
 const c = new Client({ name: "dump", version: "0" });

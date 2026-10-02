@@ -13,6 +13,7 @@ behind a pluggable adapter:
 |---|---|---|
 | `rpc` (default) | one long-running `serve-stdio` JSONL process; the dataset is loaded once and requests are pipelined. `EVE_FIT_WORKERS=N` runs a pool and spreads batches over the N processes | desktop agents, servers |
 | `cli` | spawns `calc` / `batch` per call; nothing stays resident | debugging, engines without `serve-stdio`, sandboxes |
+| `http` | a remote engine server: `POST /v1/calc`, `POST /v1/batch` (JSONL), `POST /v1/rpc`, `GET /v1/meta` (e.g. `eve-dogma-go serve-http`) | shared engine for several MCP instances, engine on another host |
 
 The server also builds its own index of the same `dataset-<build>.json.gz`. It answers search, show-info,
 ship layouts, skill trees, compatible charges and optimiser candidates, so none of that depends on engine
@@ -72,9 +73,10 @@ npm ci && npm run build
 
 | variable | default | meaning |
 |---|---|---|
-| `EVE_DOGMA_DATASET` | (required) | dataset used by the engine **and** the search index |
+| `EVE_DOGMA_DATASET` | (required) | dataset used by the engine **and** the search index (also needed with `http`: the index is local) |
 | `EVE_DOGMA_BIN` | `eve-dogma` | engine binary |
-| `EVE_FIT_ADAPTER` | `rpc` | `rpc` or `cli` |
+| `EVE_FIT_ADAPTER` | `rpc` | `rpc`, `cli` or `http` |
+| `EVE_FIT_ENGINE_URL` | – | engine base URL for `http`, e.g. `http://127.0.0.1:8080` |
 | `EVE_FIT_RPC_CMD` | `{bin} --dataset {dataset} serve-stdio` | rpc command template |
 | `EVE_FIT_CALC_CMD` / `EVE_FIT_BATCH_CMD` | `{bin} --dataset {dataset} calc` / `… batch` | cli templates |
 | `EVE_FIT_WORKERS` | `1` | rpc engine processes |
@@ -156,7 +158,8 @@ Tests use `/workspace/exct-eve/...` paths by default; override them with `EVE_DO
 and `EVE_DOGMA_GO_BIN`. They cover:
 * every tool, resource and prompt;
 * EFT/DNA/JSON equivalence;
-* the cli adapter, the worker pool, and variant C as the engine (identical numbers and identical EFT export);
+* the cli adapter, the worker pool, the http adapter (against `eve-dogma-go serve-http`), and variant C as the
+  engine (identical numbers and identical EFT export);
 * a bad engine binary;
 * Streamable HTTP.
 

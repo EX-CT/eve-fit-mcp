@@ -2,13 +2,15 @@
 import { existsSync } from "node:fs";
 import { CachingAdapter } from "./adapters/cache.js";
 import { CliAdapter } from "./adapters/cli.js";
+import { HttpAdapter } from "./adapters/http.js";
 import { expandCommand } from "./adapters/cmd.js";
 import { RpcAdapter } from "./adapters/rpc.js";
 import type { EngineAdapter } from "./adapters/types.js";
 
 export interface Config {
-  /** "rpc" (long-running serve-stdio, default) or "cli" (spawn per call). */
-  adapter: "rpc" | "cli";
+  /** "rpc" (long-running serve-stdio, default), "cli" (spawn per call) or "http" (remote engine server). */
+  adapter: "rpc" | "cli" | "http";
+  engineUrl: string;
   bin: string;
   dataset: string;
   rpcCmd: string;
@@ -27,7 +29,8 @@ export interface Config {
 export const ENV_DOC: Record<string, string> = {
   EVE_DOGMA_BIN: "engine binary (default: `eve-dogma` on PATH; any variant implementing the contract works)",
   EVE_DOGMA_DATASET: "dataset-<build>.json.gz used by both the engine and the MCP search index (required)",
-  EVE_FIT_ADAPTER: "`rpc` (default: long-running `serve-stdio` process) or `cli` (spawn `calc`/`batch` per call)",
+  EVE_FIT_ADAPTER: "`rpc` (default: long-running `serve-stdio` process), `cli` (spawn `calc`/`batch` per call) or `http` (remote engine server)",
+  EVE_FIT_ENGINE_URL: "base URL of an HTTP engine for EVE_FIT_ADAPTER=http (POST /v1/calc, /v1/batch, /v1/rpc; GET /v1/meta)",
   EVE_FIT_RPC_CMD: "rpc command template (default `{bin} --dataset {dataset} serve-stdio`)",
   EVE_FIT_CALC_CMD: "cli calc template (default `{bin} --dataset {dataset} calc`)",
   EVE_FIT_BATCH_CMD: "cli batch template (default `{bin} --dataset {dataset} batch`)",
@@ -47,9 +50,10 @@ function int(v: string | undefined, d: number): number {
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const adapter = (env.EVE_FIT_ADAPTER ?? "rpc").toLowerCase();
-  if (adapter !== "rpc" && adapter !== "cli") throw new Error(`EVE_FIT_ADAPTER must be rpc or cli, got ${adapter}`);
+  if (adapter !== "rpc" && adapter !== "cli" && adapter !== "http") throw new Error(`EVE_FIT_ADAPTER must be rpc, cli or http, got ${adapter}`);
   return {
     adapter,
+    engineUrl: env.EVE_FIT_ENGINE_URL || "",
     bin: env.EVE_DOGMA_BIN || "eve-dogma",
     dataset: env.EVE_DOGMA_DATASET || "",
     rpcCmd: env.EVE_FIT_RPC_CMD || "{bin} --dataset {dataset} serve-stdio",
@@ -76,6 +80,10 @@ export function createAdapter(cfg: Config): EngineAdapter {
 }
 
 function createRawAdapter(cfg: Config): EngineAdapter {
+  if (cfg.adapter === "http") {
+    if (!cfg.engineUrl) throw new Error("EVE_FIT_ADAPTER=http needs EVE_FIT_ENGINE_URL");
+    return new HttpAdapter({ baseUrl: cfg.engineUrl, timeoutMs: cfg.timeoutMs });
+  }
   const vars = { bin: cfg.bin, dataset: cfg.dataset };
   if (cfg.adapter === "cli")
     return new CliAdapter({

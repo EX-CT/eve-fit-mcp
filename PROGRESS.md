@@ -3,8 +3,8 @@
 Updated: 2026-10-03 06:25 (Asia/Shanghai)
 
 ## State: working v0.1.0 (all integration tests pass against eve-dogma-rs and variant C)
-- Engine adapters: `rpc` (serve-stdio JSONL, pipelined, worker pool, restart on crash, timeouts) and
-  `cli` (calc/batch per call). Command templates via env, so any contract variant plugs in.
+- Engine adapters: `rpc` (serve-stdio JSONL, pipelined, worker pool, restart on crash, timeouts),
+  `cli` (calc/batch per call) and `http` (remote engine server), plus a request-keyed result cache. Command templates via env, so any contract variant plugs in.
 - Dataset index in Node (search with jargon/zh/fuzzy, filters, fits_ship, layouts, skill trees, charges).
 - 17 tools (incl. suggest_charges, sweep), 10 resources (3 templates), 4 prompts; stdio + stateless Streamable HTTP.
 - Input normalisation: EFT (engine), DNA (local), lenient JSON with names; default skills all V.

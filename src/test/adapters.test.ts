@@ -63,6 +63,39 @@ describe("adapters", { skip: !haveEngine && "engine or dataset missing" }, () =>
     }
   });
 
+  test("http adapter against variant C serve-http", { skip: !existsSync(GO_BIN) && "variant C binary missing" }, async () => {
+    const port = 19765 + Math.floor(Math.random() * 1000);
+    const eng = spawn(GO_BIN, ["--dataset", DATASET, "serve-http", "-addr", `127.0.0.1:${port}`], { stdio: ["ignore", "ignore", "pipe"] });
+    try {
+      await new Promise<void>((res, rej) => {
+        const t = setTimeout(() => rej(new Error("engine http did not start")), 20000);
+        eng.stderr.on("data", (d) => {
+          if (/serve-http on/.test(String(d))) {
+            clearTimeout(t);
+            res();
+          }
+        });
+      });
+      const c = await connect({ EVE_FIT_ADAPTER: "http", EVE_FIT_ENGINE_URL: `http://127.0.0.1:${port}` });
+      try {
+        const info = await call(c, "engine_info", {});
+        assert.equal(info.adapter, "http");
+        assert.equal(info.dataset_match, true);
+        const r = await call(c, "compute_fit", { eft: RIFTER_EFT });
+        assert.deepEqual(r.metrics, base.metrics);
+        const s = await call(c, "suggest_modules", { eft: RIFTER_EFT, replace_index: 1, goal: "dps", top: 3 });
+        const one = await call(rpc, "suggest_modules", { eft: RIFTER_EFT, replace_index: 1, goal: "dps", top: 3 });
+        assert.deepEqual(s.suggestions, one.suggestions);
+        const eft = (await call(c, "export_fit", { eft: RIFTER_EFT, format: "eft", name: "x" })).text;
+        assert.match(eft, /^\[Rifter, x\]/);
+      } finally {
+        await c.close();
+      }
+    } finally {
+      eng.kill();
+    }
+  });
+
   test("bad engine binary gives an actionable error, not a hang", async () => {
     const c = await connect({ EVE_DOGMA_BIN: "/nonexistent/eve-dogma" });
     try {

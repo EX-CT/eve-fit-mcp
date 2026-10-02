@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "list_presets",
+  "description": "Built-in skill presets, pirate implant sets (from the dataset), incoming damage profiles (for EHP) and target profiles (for applied DPS), usable by name in every fit tool.",
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": [
+        "all",
+        "skills",
+        "implant_sets",
+        "damage_profiles",
+        "target_profiles",
+        "metrics"
+      ]
+    }
+  }
+}

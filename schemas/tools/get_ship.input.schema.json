@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "get_ship",
+  "description": "Slots, hardpoints, rig size, CPU/powergrid/calibration, drone bay and bandwidth for a hull, plus the empty hull's computed stats with the given skills (default all V): what you have to work with before fitting.",
+  "type": "object",
+  "properties": {
+    "ship": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "skills": {
+      "description": "skill level for every skill (0-5), a preset (all_5 … all_0), or {default_level, levels:{skill name|id: level}}; default all_5",
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "default_level": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 5
+            },
+            "levels": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 5
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "required": [
+    "ship"
+  ]
+}

@@ -1,0 +1,82 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "search_types",
+  "description": "Find ships, modules, charges, drones, fighters, implants, boosters, subsystems or skills by name (English or Chinese, player jargon like 'mwd', 'lse', 'dc', 'scram'). Filters: kind, slot, group, meta level, tech level, and fits_ship (only modules that can be fitted to that hull).",
+  "type": "object",
+  "properties": {
+    "query": {
+      "type": "string",
+      "description": "name fragment; empty string lists everything that matches the filters"
+    },
+    "kinds": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "ship",
+          "module",
+          "charge",
+          "drone",
+          "fighter",
+          "implant",
+          "booster",
+          "subsystem",
+          "skill",
+          "structure",
+          "structure_module"
+        ]
+      }
+    },
+    "slot": {
+      "type": "string",
+      "enum": [
+        "high",
+        "mid",
+        "low",
+        "rig",
+        "subsystem",
+        "service"
+      ]
+    },
+    "group": {
+      "description": "group name fragment, e.g. 'Shield Extender'",
+      "type": "string"
+    },
+    "meta_min": {
+      "type": "number"
+    },
+    "meta_max": {
+      "type": "number"
+    },
+    "tech_level": {
+      "type": "integer",
+      "minimum": -9007199254740991,
+      "maximum": 9007199254740991
+    },
+    "fits_ship": {
+      "description": "ship id or name",
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "include_unpublished": {
+      "type": "boolean"
+    },
+    "limit": {
+      "description": "default 20",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200
+    }
+  },
+  "required": [
+    "query"
+  ]
+}

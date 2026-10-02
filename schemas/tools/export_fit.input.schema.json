@@ -1,0 +1,551 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "export_fit",
+  "description": "Write a fit as EFT (Pyfa-exact, via the engine), ship DNA, multibuy shopping list, or contract JSON.",
+  "type": "object",
+  "properties": {
+    "fit": {
+      "description": "FitRequest JSON (contract v1); names may replace ids",
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "type": "number",
+          "const": 1
+        },
+        "ship": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "description": "type id or (English/Chinese) name"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type_id": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "name": {
+                  "type": "string"
+                },
+                "mode_type_id": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "mode": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ],
+                  "description": "type id or (English/Chinese) name"
+                }
+              },
+              "additionalProperties": {}
+            }
+          ]
+        },
+        "character": {
+          "type": "object",
+          "properties": {
+            "skills": {
+              "type": "object",
+              "properties": {
+                "default_level": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 5
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "levels": {
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string"
+                  },
+                  "additionalProperties": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 5
+                  }
+                }
+              }
+            },
+            "security_status": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          },
+          "additionalProperties": {}
+        },
+        "modules": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "EFT-style line, e.g. \"200mm AutoCannon II, EMP S\" or \"Damage Control II /offline\""
+              },
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type_id": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "slot": {
+                    "type": "string",
+                    "enum": [
+                      "high",
+                      "mid",
+                      "low",
+                      "rig",
+                      "subsystem",
+                      "service"
+                    ]
+                  },
+                  "state": {
+                    "description": "default: active for activatable modules, else online",
+                    "type": "string",
+                    "enum": [
+                      "offline",
+                      "online",
+                      "active",
+                      "overheated"
+                    ]
+                  },
+                  "charge_type_id": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "charge": {
+                    "description": "charge id or name",
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "mutation": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {}
+                  },
+                  "spool": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {}
+                  }
+                },
+                "additionalProperties": {}
+              }
+            ]
+          }
+        },
+        "drones": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "\"Hobgoblin II x5\""
+              },
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type_id": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "quantity": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "active": {}
+                },
+                "additionalProperties": {}
+              }
+            ]
+          }
+        },
+        "fighters": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "\"Hobgoblin II x5\""
+              },
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type_id": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "quantity": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "active": {}
+                },
+                "additionalProperties": {}
+              }
+            ]
+          }
+        },
+        "implants": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "type id or (English/Chinese) name"
+          }
+        },
+        "boosters": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "description": "type id or (English/Chinese) name"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type_id": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "side_effects": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "cargo": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "\"Hobgoblin II x5\""
+              },
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type_id": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "quantity": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "active": {}
+                },
+                "additionalProperties": {}
+              }
+            ]
+          }
+        },
+        "fleet": {
+          "description": "{buffs:[{buff_id,value}], booster_fits:[FitRequest]}",
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {}
+        },
+        "projected": {
+          "description": "[{kind:\"module\"|\"drone\"|\"fighter\"|\"fit\", module|drone|fighter|fit, amount, distance_m}]",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          }
+        },
+        "environment": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {}
+        },
+        "damage_pattern": {
+          "anyOf": [
+            {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {
+                "type": "number"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "target_profile": {
+          "anyOf": [
+            {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "overrides": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          }
+        },
+        "options": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "ship"
+      ],
+      "additionalProperties": {}
+    },
+    "eft": {
+      "description": "EFT text as exported by the game / Pyfa",
+      "type": "string"
+    },
+    "dna": {
+      "description": "ship DNA, e.g. 587:2889;3:… (also <url=fitting:…> links)",
+      "type": "string"
+    },
+    "skills": {
+      "description": "skill level for every skill (0-5), a preset (all_5 … all_0), or {default_level, levels:{skill name|id: level}}; default all_5",
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "default_level": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 5
+            },
+            "levels": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 5
+              }
+            }
+          }
+        }
+      ]
+    },
+    "damage_profile": {
+      "description": "incoming damage for EHP: preset name (list_presets) or {em,thermal,kinetic,explosive}",
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": "number"
+          }
+        }
+      ]
+    },
+    "target_profile": {
+      "description": "target for applied DPS: preset name or {signature_radius,max_velocity,em,…}",
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        }
+      ]
+    },
+    "implant_set": {
+      "description": "add a pirate implant set, e.g. \"High-grade Crystal\"",
+      "type": "string"
+    },
+    "format": {
+      "type": "string",
+      "enum": [
+        "eft",
+        "dna",
+        "multibuy",
+        "json"
+      ],
+      "description": "output format"
+    },
+    "name": {
+      "description": "fit name for EFT header",
+      "type": "string"
+    }
+  },
+  "required": [
+    "format"
+  ]
+}

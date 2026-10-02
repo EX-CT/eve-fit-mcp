@@ -1,0 +1,7 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "engine_info",
+  "description": "Which engine/adapter is in use, its dataset (SDE build, sha256) and whether the MCP's search index uses the same dataset.",
+  "type": "object",
+  "properties": {}
+}

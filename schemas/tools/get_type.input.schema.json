@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "get_type",
+  "description": "Show-info for one type: group/category, slot, meta/tech level, named attributes with units (base values, before skills/modules), effects, required skills (with prerequisites), compatible charges for weapons, and for ships the slot/hardpoint/resource layout.",
+  "type": "object",
+  "properties": {
+    "type": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        {
+          "type": "string"
+        }
+      ],
+      "description": "type id or name"
+    },
+    "all_attributes": {
+      "description": "include unpublished/internal attributes (default false)",
+      "type": "boolean"
+    },
+    "charges_limit": {
+      "description": "default 40",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 500
+    }
+  },
+  "required": [
+    "type"
+  ]
+}

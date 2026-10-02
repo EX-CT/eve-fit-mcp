@@ -1,0 +1,152 @@
+[
+  {
+    "name": "search_types",
+    "title": "Search items",
+    "description": "Find ships, modules, charges, drones, fighters, implants, boosters, subsystems or skills by name (English or Chinese, player jargon like 'mwd', 'lse', 'dc', 'scram'). Filters: kind, slot, group, meta level, tech level, and fits_ship (only modules that can be fitted to that hull).",
+    "annotations": {
+      "readOnlyHint": true,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "get_type",
+    "title": "Item details",
+    "description": "Show-info for one type: group/category, slot, meta/tech level, named attributes with units (base values, before skills/modules), effects, required skills (with prerequisites), compatible charges for weapons, and for ships the slot/hardpoint/resource layout.",
+    "annotations": {
+      "readOnlyHint": true,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "get_ship",
+    "title": "Ship layout",
+    "description": "Slots, hardpoints, rig size, CPU/powergrid/calibration, drone bay and bandwidth for a hull, plus the empty hull's computed stats with the given skills (default all V): what you have to work with before fitting.",
+    "annotations": {
+      "readOnlyHint": true,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "list_presets",
+    "title": "Presets",
+    "description": "Built-in skill presets, pirate implant sets (from the dataset), incoming damage profiles (for EHP) and target profiles (for applied DPS), usable by name in every fit tool.",
+    "annotations": {
+      "readOnlyHint": true,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "parse_fit",
+    "title": "Import fit",
+    "description": "EFT text, ship DNA, or a lenient FitRequest (names instead of ids) → the strict contract FitRequest the engine takes, with every item named and a request_hash for caching/replay. No calculation.",
+    "annotations": {
+      "readOnlyHint": true,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "export_fit",
+    "title": "Export fit",
+    "description": "Write a fit as EFT (Pyfa-exact, via the engine), ship DNA, multibuy shopping list, or contract JSON.",
+    "annotations": {
+      "readOnlyHint": true,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "validate_fit",
+    "title": "Validate fit",
+    "description": "Check a fit for fitting problems (CPU/powergrid/calibration overload, slots, hardpoints, rig size, ship restrictions, max-group limits, charges, skills) with module names and fix hints, plus resource usage.",
+    "annotations": {
+      "readOnlyHint": true,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "compute_fit",
+    "title": "Compute fit stats",
+    "description": "Full Pyfa-parity statistics for a fit: DPS/volley (per weapon, drones, fighters, applied vs a target profile), EHP/resists/tank, capacitor simulation, speed/align/signature/warp, targeting, resources and violations. detail=summary (default) returns a compact view + named metrics; detail=full returns the engine output (optionally only `sections`).",
+    "annotations": {
+      "readOnlyHint": true,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "compare_fits",
+    "title": "Compare fits",
+    "description": "Compute several fits in one batch and return a metric × fit table with deltas vs the first fit (markdown + JSON). Shared skills/damage/target profiles apply to every fit unless a fit sets its own.",
+    "annotations": {
+      "readOnlyHint": true,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "what_if",
+    "title": "What-if scenarios",
+    "description": "Apply changes to a fit and see the stat deltas, all in one batch: add/remove/replace modules, change module state or ammo, skills, drones, implants, boosters, damage/target profile, engine options. Each scenario is a list of changes applied together; `changes` alone means one scenario per change.",
+    "annotations": {
+      "readOnlyHint": true,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "suggest_modules",
+    "title": "Suggest modules",
+    "description": "Rank modules for one slot by a goal (e.g. dps, ehp, tank, speed, align, cap_stability, lock_range, or a weighted mix) by actually computing every candidate fit in a batch. Either fill a free slot (`slot`) or replace module `replace_index`. Candidates that add fitting violations are dropped unless constraints.allow_violations; constraints.min/max set hard limits on any metric.",
+    "annotations": {
+      "readOnlyHint": true,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "optimize_fit",
+    "title": "Optimise fit",
+    "description": "Greedy local search towards a goal: fills free slots with the best module, then repeatedly applies the single best module swap, until no move improves the goal or the evaluation budget runs out. Returns the improved fit (EFT + request), stat changes and the step trace. Respects constraints like suggest_modules; `lock` keeps module indices unchanged.",
+    "annotations": {
+      "readOnlyHint": true,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "skill_requirements",
+    "title": "Skill requirements",
+    "description": "Every skill (with prerequisites) the fit's ship, modules, charges, drones, fighters, implants and boosters need, and which the given character lacks (character = `skills`, default all V).",
+    "annotations": {
+      "readOnlyHint": true,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "evaluate_profiles",
+    "title": "Profiles sweep",
+    "description": "Applied DPS against each target profile and EHP against each incoming damage profile, in one batch: how the fit performs against frigates vs battleships, or against Guristas vs Blood Raiders.",
+    "annotations": {
+      "readOnlyHint": true,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "engine_info",
+    "title": "Engine info",
+    "description": "Which engine/adapter is in use, its dataset (SDE build, sha256) and whether the MCP's search index uses the same dataset.",
+    "annotations": {
+      "readOnlyHint": true,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  }
+]

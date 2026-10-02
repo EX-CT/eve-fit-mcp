@@ -6,7 +6,7 @@ Updated: 2026-10-03 06:25 (Asia/Shanghai)
 - Engine adapters: `rpc` (serve-stdio JSONL, pipelined, worker pool, restart on crash, timeouts),
   `cli` (calc/batch per call) and `http` (remote engine server), plus a request-keyed result cache. Command templates via env, so any contract variant plugs in.
 - Dataset index in Node (search with jargon/zh/fuzzy, filters, fits_ship, layouts, skill trees, charges).
-- 17 tools (incl. suggest_charges, sweep), 10 resources (3 templates), 4 prompts; stdio + stateless Streamable HTTP.
+- 18 tools (incl. suggest_charges, suggest_drones, sweep), 10 resources (3 templates), 4 prompts; stdio + stateless Streamable HTTP.
 - Input normalisation: EFT (engine), DNA (local), lenient JSON with names; default skills all V.
 - Helpers: what_if, suggest_modules (batched, two-stage when over budget), optimize_fit (greedy),
   evaluate_profiles, skill_requirements.
@@ -24,3 +24,4 @@ Updated: 2026-10-03 06:25 (Asia/Shanghai)
 
 - `optimize_fit` emits `notifications/progress` (one per accepted step) when the client sends a progress token.
 - `--http` has DNS-rebinding protection (Host allow-list: loopback, the bind host, `EVE_FIT_ALLOWED_HOSTS`).
+- `suggest_drones`: single-type flights limited by bandwidth, bay and the Drones skill; drones the character can't use are listed last with their missing skills.

@@ -120,6 +120,16 @@
     }
   },
   {
+    "name": "suggest_drones",
+    "title": "Suggest drones",
+    "description": "Rank single-type drone loadouts for the ship: for every published drone that fits the drone bandwidth and bay, fill the bay with it, launch as many as bandwidth and the Drones skill allow, compute the fit, and rank by a goal (default dps; try applied_dps with a target_profile). Drones the character cannot use (`skills`) are listed after usable ones, with the missing skills. Replaces the fit's current drones. Mixed flights are not searched; use what_if/compare_fits for those.",
+    "annotations": {
+      "readOnlyHint": true,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
     "name": "sweep",
     "title": "Parameter sweep (graph data)",
     "description": "Series data for graphs: vary one parameter and compute metrics at each point in one batch. x = target_signature (m), target_velocity (m/s), skill_level (all skills 0–5), or distance (m; for projected effects in the fit). Default y: applied_dps for target sweeps, dps/ehp/speed for skills.",

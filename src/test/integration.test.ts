@@ -16,7 +16,7 @@ describe("eve-fit-mcp (rpc adapter, eve-dogma-rs)", { skip: !haveEngine && "engi
   test("lists every tool with a JSON schema", async () => {
     const { tools } = await c.listTools();
     const names = tools.map((t) => t.name).sort();
-    for (const n of ["search_types", "get_type", "get_ship", "list_presets", "parse_fit", "export_fit", "validate_fit", "compute_fit", "compare_fits", "what_if", "suggest_modules", "optimize_fit", "skill_requirements", "evaluate_profiles", "engine_info", "suggest_charges", "sweep"])
+    for (const n of ["search_types", "get_type", "get_ship", "list_presets", "parse_fit", "export_fit", "validate_fit", "compute_fit", "compare_fits", "what_if", "suggest_modules", "optimize_fit", "skill_requirements", "evaluate_profiles", "engine_info", "suggest_charges", "sweep", "suggest_drones"])
       assert.ok(names.includes(n), `missing tool ${n}`);
     for (const t of tools) {
       assert.equal(t.inputSchema.type, "object", t.name);
@@ -199,6 +199,21 @@ describe("eve-fit-mcp (rpc adapter, eve-dogma-rs)", { skip: !haveEngine && "engi
     if (r.improved) assert.ok(row.after > row.before);
     assert.equal(r.request.modules[0].type_id, 2048, "locked DCU kept");
     assert.match(r.eft ?? "", /^\[Rifter/);
+  });
+
+  test("suggest_drones respects bandwidth, bay and skills", async () => {
+    const r = await call(c, "suggest_drones", { eft: "[Vexor, v]\nDrone Damage Amplifier II\n\n\n\n\nHammerhead II x5", top: 5 });
+    assert.equal(r.drone_bandwidth, 75);
+    assert.equal(r.max_active, 5);
+    assert.equal(r.current[0].drone, "Hammerhead II");
+    assert.ok(r.ranked.length === 5 && r.ranked[0].goal.dps > 300);
+    for (const x of r.ranked) assert.ok(x.active >= 1 && x.active <= 5 && x.quantity >= x.active, x.drone);
+    const low = await call(c, "suggest_drones", { eft: "[Vexor, v]", skills: 3, top: 50 });
+    assert.equal(low.max_active, 3);
+    const firstMissing = low.ranked.findIndex((x: any) => x.missing_skills.length > 0);
+    if (firstMissing >= 0) assert.ok(low.ranked.slice(firstMissing).every((x: any) => x.missing_skills.length > 0), "usable drones first");
+    const err = await callErr(c, "suggest_drones", { eft: "[Rifter, r]" });
+    assert.match(err, /no drone bay/);
   });
 
   test("optimize_fit sends progress notifications when asked", async () => {

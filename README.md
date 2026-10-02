@@ -37,6 +37,7 @@ Transports: **stdio**, and **Streamable HTTP** (`--http`; stateless, `POST /mcp`
 | `what_if` | add/remove/replace modules, state, ammo, skills, drones, implants, boosters, profiles, options → deltas per scenario |
 | `suggest_modules` | ranks every compatible module for a slot (fill it, or replace module *i*) by a goal (`dps`, `ehp`, `tank`, `speed`, `align`, `cap_stability`, `lock_range` … or a weighted mix) by computing each candidate. Drops candidates that add violations; `min`/`max` limits on any metric |
 | `suggest_charges` | for each weapon type in the fit, ranks every compatible charge by a goal (`dps`, `applied_dps`, `weapon_range` …) |
+| `suggest_drones` | rank single-type drone flights within bandwidth, bay and the Drones skill; usable drones first, with missing skills |
 | `sweep` | graph data: metrics vs target signature / target velocity / skill level / projected distance, in one batch |
 | `optimize_fit` | greedy local search: fill free slots, then apply the best swap until nothing improves. Takes budget, constraints, `lock` and `slots`; returns the trace and an EFT. Reports MCP progress when the client sends a progress token |
 | `skill_requirements` | every skill the fit needs, prerequisites included, and what the character lacks |

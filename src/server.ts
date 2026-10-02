@@ -8,7 +8,7 @@ import type { Dataset, Kind, Slot } from "./dataset.js";
 import { JARGON, KINDS, SLOTS } from "./dataset.js";
 import { exportDna, exportMultibuy } from "./dna.js";
 import { normalizeFit, type Ctx, type FitInput } from "./fit.js";
-import { applyChange, candidateModules, evalBatch, freeSlots, optimize, skillRequirements, suggest, toGoals } from "./helpers.js";
+import { applyChange, candidateModules, characterLevel, evalBatch, freeSlots, optimize, skillRequirements, suggest, toGoals } from "./helpers.js";
 import { DEFAULT_COMPARE, goalScore, METRICS, metric, round, type Goal } from "./metrics.js";
 
 const goalScoreSafe = (g: Goal[], s: FitStats, b: FitStats) => round(goalScore(g, s, b), 5) ?? 0;
@@ -510,6 +510,67 @@ export function createServer(ctx: ServerDeps): McpServer {
         text += `**${ds.type(tid)!.name}** ×${idx.length}\n` + markdownTable(["charge", ...goals.map((g) => g.metric), "range m"], ranked.map((r: any) => [r.charge, ...goals.map((g) => r.goal[g.metric]), r.weapon_range])) + "\n\n";
       }
       return ok({ weapons: out, notes: n.notes }, text.trim());
+    }),
+  );
+
+  server.registerTool(
+    "suggest_drones",
+    {
+      title: "Suggest drones",
+      description:
+        "Rank single-type drone loadouts for the ship: for every published drone that fits the drone bandwidth and bay, fill the bay with it, launch as many as bandwidth and the Drones skill allow, compute the fit, and rank by a goal (default dps; try applied_dps with a target_profile). Drones the character cannot use (`skills`) are listed after usable ones, with the missing skills. Replaces the fit's current drones. Mixed flights are not searched; use what_if/compare_fits for those.",
+      inputSchema: {
+        ...fitInputShape,
+        goal: GoalSpec.optional().describe("default dps"),
+        group: z.string().optional().describe("only drone groups matching this (case-insensitive substring), e.g. 'Combat Drone', 'Logistic'"),
+        max_active: z.number().int().min(1).max(5).optional().describe("cap on launched drones (default: Drones skill level, 5 with all-V)"),
+        top: z.number().int().min(1).max(50).optional().describe("default 10"),
+      },
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+    },
+    wrap(async (a) => {
+      const n = await norm(a);
+      const req: any = n.request;
+      const goals = toGoals((a.goal as any) ?? "dps");
+      const ship = ds.type(req.ship.type_id)!;
+      const bw = ds.attr(ship, "droneBandwidth") ?? 0;
+      const bay = ds.attr(ship, "droneCapacity") ?? 0;
+      if (bay <= 0 || bw <= 0) throw new Error(`${ship.name} has no drone bay or no drone bandwidth`);
+      const skillCap = characterLevel(req, 3436); // Drones: +1 active drone per level
+      const maxActive = Math.min(a.max_active ?? 5, skillCap);
+      if (maxActive <= 0) throw new Error("the character cannot launch drones (Drones skill 0)");
+      const g = a.group?.toLowerCase();
+      const loadouts: { t: any; quantity: number; active: number }[] = [];
+      for (const t of ds.types.values()) {
+        if (t.kind !== "drone" || !t.published || (g && !t.group.toLowerCase().includes(g))) continue;
+        const use = ds.attr(t, "droneBandwidthUsed") ?? 0;
+        const vol = t.volume || 0;
+        if (vol <= 0 || vol > bay) continue;
+        const active = Math.min(maxActive, use > 0 ? Math.floor(bw / use + 1e-9) : maxActive);
+        if (active <= 0) continue;
+        loadouts.push({ t, quantity: Math.floor(bay / vol + 1e-9), active: Math.min(active, Math.floor(bay / vol + 1e-9)) });
+      }
+      if (!loadouts.length) throw new Error("no drone fits this ship" + (g ? ` in groups matching '${a.group}'` : ""));
+      const noDrones: any = { ...JSON.parse(JSON.stringify(req)), drones: [] };
+      const base = await calc(noDrones);
+      const reqs = loadouts.map((l) => ({ ...JSON.parse(JSON.stringify(noDrones)), drones: [{ type_id: l.t.id, quantity: l.quantity, active: l.active }] }));
+      const res = await evalBatch(ctx, reqs);
+      const ranked = res
+        .map((s, k) => {
+          if (isContractError(s)) return null;
+          const l = loadouts[k];
+          const goal = Object.fromEntries(goals.map((x) => [x.metric, round(metric(x.metric).get(s))]));
+          const missing = [...ds.skillTree(l.t)].filter(([sid, lvl]) => characterLevel(req, sid) < lvl).map(([sid, lvl]) => `${ds.type(sid)?.name ?? sid} ${lvl}`);
+          return { drone_type_id: l.t.id, drone: l.t.name, group: l.t.group, quantity: l.quantity, active: l.active, score: goalScoreSafe(goals, s, base), goal, violations: s.violations?.length ?? 0, missing_skills: missing };
+        })
+        .filter(Boolean)
+        .sort((x: any, y: any) => Number(x.missing_skills.length > 0) - Number(y.missing_skills.length > 0) || y.score - x.score || x.violations - y.violations)
+        .slice(0, a.top ?? 10);
+      const current = (req.drones ?? []).map((d: any) => ({ drone: ds.type(d.type_id)?.name ?? d.type_id, quantity: d.quantity, active: d.active }));
+      const text =
+        `**${ship.name}**: bandwidth ${bw} Mbit/s, bay ${bay} m³, up to ${maxActive} active\n` +
+        markdownTable(["drone", "launched", "in bay", ...goals.map((x) => x.metric), "missing skills"], ranked.map((r: any) => [r.drone, r.active, r.quantity, ...goals.map((x) => r.goal[x.metric]), r.missing_skills.join(", ") || "–"]));
+      return ok({ ship: ship.name, drone_bandwidth: bw, drone_bay_m3: bay, max_active: maxActive, current, candidates: loadouts.length, ranked, notes: n.notes }, text);
     }),
   );
 

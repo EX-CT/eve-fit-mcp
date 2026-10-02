@@ -9,7 +9,9 @@ import { JARGON, KINDS, SLOTS } from "./dataset.js";
 import { exportDna, exportMultibuy } from "./dna.js";
 import { normalizeFit, type Ctx, type FitInput } from "./fit.js";
 import { applyChange, candidateModules, evalBatch, freeSlots, optimize, skillRequirements, suggest, toGoals } from "./helpers.js";
-import { DEFAULT_COMPARE, METRICS, metric, round } from "./metrics.js";
+import { DEFAULT_COMPARE, goalScore, METRICS, metric, round, type Goal } from "./metrics.js";
+
+const goalScoreSafe = (g: Goal[], s: FitStats, b: FitStats) => round(goalScore(g, s, b), 5) ?? 0;
 import { DAMAGE_PROFILES, implantSets, SKILL_PRESETS, TARGET_PROFILES } from "./profiles.js";
 import { Change, Constraints, fitInputShape, FitInputObject, GoalSpec, z } from "./schemas.js";
 import { markdownTable, pickSections, SECTIONS, summarize } from "./summary.js";
@@ -455,6 +457,104 @@ export function createServer(ctx: ServerDeps): McpServer {
         },
         table,
       );
+    }),
+  );
+
+  server.registerTool(
+    "suggest_charges",
+    {
+      title: "Suggest ammo",
+      description:
+        "For each weapon type in the fit (or only module `module_index`'s type), compute the fit with every compatible charge loaded in all of those weapons and rank the charges by a goal (default dps; try applied_dps with a target_profile, or weapon_range).",
+      inputSchema: {
+        ...fitInputShape,
+        goal: GoalSpec.optional().describe("default dps"),
+        module_index: z.number().int().optional(),
+        top: z.number().int().min(1).max(50).optional().describe("default 8 per weapon type"),
+      },
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+    },
+    wrap(async (a) => {
+      const n = await norm(a);
+      const req: any = n.request;
+      const goals = toGoals((a.goal as any) ?? "dps");
+      const types = new Map<number, number[]>();
+      req.modules.forEach((m: any, i: number) => {
+        if (a.module_index !== undefined && req.modules[a.module_index]?.type_id !== m.type_id) return;
+        const t = ds.type(m.type_id);
+        if (t && ds.compatibleCharges(t, 1).length) types.set(m.type_id, [...(types.get(m.type_id) ?? []), i]);
+      });
+      if (!types.size) throw new Error("no module in the fit takes charges" + (a.module_index !== undefined ? ` (module ${a.module_index})` : ""));
+      const base = await calc(req);
+      const out: any[] = [];
+      let text = "";
+      for (const [tid, idx] of types) {
+        const charges = ds.compatibleCharges(ds.type(tid)!, 300);
+        const reqs = charges.map((c) => {
+          const r: any = JSON.parse(JSON.stringify(req));
+          for (const i of idx) r.modules[i].charge_type_id = c.id;
+          return r;
+        });
+        const res = await evalBatch(ctx, reqs);
+        const ranked = res
+          .map((s, k) => {
+            if (isContractError(s)) return null;
+            const goal = Object.fromEntries(goals.map((g) => [g.metric, round(metric(g.metric).get(s))]));
+            return { charge_type_id: charges[k].id, charge: charges[k].name, score: goalScoreSafe(goals, s, base), goal, weapon_range: round(metric("weapon_range").get(s), 0), dps: round(metric("dps").get(s), 2) };
+          })
+          .filter(Boolean)
+          .sort((x: any, y: any) => y.score - x.score)
+          .slice(0, a.top ?? 8);
+        const cur = req.modules[idx[0]].charge_type_id;
+        out.push({ weapon: ds.type(tid)!.name, modules: idx, current: cur ? ds.type(cur)?.name ?? cur : null, candidates: charges.length, ranked });
+        text += `**${ds.type(tid)!.name}** ×${idx.length}\n` + markdownTable(["charge", ...goals.map((g) => g.metric), "range m"], ranked.map((r: any) => [r.charge, ...goals.map((g) => r.goal[g.metric]), r.weapon_range])) + "\n\n";
+      }
+      return ok({ weapons: out, notes: n.notes }, text.trim());
+    }),
+  );
+
+  server.registerTool(
+    "sweep",
+    {
+      title: "Parameter sweep (graph data)",
+      description:
+        "Series data for graphs: vary one parameter and compute metrics at each point in one batch. x = target_signature (m), target_velocity (m/s), skill_level (all skills 0–5), or distance (m; for projected effects in the fit). Default y: applied_dps for target sweeps, dps/ehp/speed for skills.",
+      inputSchema: {
+        ...fitInputShape,
+        x: z.enum(["target_signature", "target_velocity", "skill_level", "distance"]),
+        values: z.array(z.number()).max(100).optional().describe("x values; or use from/to/steps"),
+        from: z.number().optional(),
+        to: z.number().optional(),
+        steps: z.number().int().min(2).max(100).optional(),
+        y: z.array(z.string()).optional().describe("metric keys"),
+      },
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+    },
+    wrap(async (a) => {
+      const n = await norm(a);
+      const req: any = n.request;
+      let xs = a.values;
+      if (!xs?.length) {
+        const def: Record<string, [number, number, number]> = { target_signature: [25, 500, 20], target_velocity: [0, 3000, 16], skill_level: [0, 5, 6], distance: [0, 60000, 13] };
+        const [f0, t0, s0] = def[a.x];
+        const [f, t, st] = [a.from ?? f0, a.to ?? t0, a.steps ?? s0];
+        xs = Array.from({ length: st }, (_, k) => round(f + ((t - f) * k) / (st - 1), 3)!);
+      }
+      const ys = (a.y?.length ? a.y : a.x === "skill_level" ? ["dps", "ehp", "speed", "cap_stability"] : a.x === "distance" ? ["speed", "dps", "cap_stability"] : ["applied_dps"]).map(metric);
+      if (a.x === "distance" && !(req.projected ?? []).length) throw new Error("distance sweeps move the fit's projected[] sources; the fit has none");
+      const tp = req.target_profile ?? { em: 0, thermal: 0, kinetic: 0, explosive: 0, signature_radius: 125, max_velocity: 0, radius: null };
+      const reqs = xs.map((x) => {
+        const r: any = JSON.parse(JSON.stringify(req));
+        if (a.x === "target_signature") r.target_profile = { ...tp, signature_radius: x };
+        else if (a.x === "target_velocity") r.target_profile = { ...tp, max_velocity: x };
+        else if (a.x === "skill_level") r.character = { ...(r.character ?? {}), skills: { default_level: Math.round(x), levels: {} } };
+        else r.projected = r.projected.map((p: any) => ({ ...p, distance_m: x }));
+        return r;
+      });
+      const res = await evalBatch(ctx, reqs);
+      const series = ys.map((m) => ({ metric: m.key, label: m.label, unit: m.unit, points: xs!.map((x, k) => [x, isContractError(res[k]) ? null : round(m.get(res[k] as FitStats))]) }));
+      const text = markdownTable([a.x, ...ys.map((m) => m.key)], xs.map((x, k) => [x, ...series.map((s) => s.points[k][1] as number | null)]));
+      return ok({ x: a.x, series, notes: n.notes }, text);
     }),
   );
 

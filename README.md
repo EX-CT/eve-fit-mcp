@@ -35,6 +35,8 @@ Transports: **stdio**, and **Streamable HTTP** (`--http`; stateless, `POST /mcp`
 | `compare_fits` | 2–20 fits in one batch → metric × fit table with deltas and the best fit per metric |
 | `what_if` | add/remove/replace modules, state, ammo, skills, drones, implants, boosters, profiles, options → deltas per scenario |
 | `suggest_modules` | ranks every compatible module for a slot (fill it, or replace module *i*) by a goal (`dps`, `ehp`, `tank`, `speed`, `align`, `cap_stability`, `lock_range` … or a weighted mix) by computing each candidate. Drops candidates that add violations; `min`/`max` limits on any metric |
+| `suggest_charges` | for each weapon type in the fit, ranks every compatible charge by a goal (`dps`, `applied_dps`, `weapon_range` …) |
+| `sweep` | graph data: metrics vs target signature / target velocity / skill level / projected distance, in one batch |
 | `optimize_fit` | greedy local search: fill free slots, then apply the best swap until nothing improves. Takes budget, constraints, `lock` and `slots`; returns the trace and an EFT |
 | `skill_requirements` | every skill the fit needs, prerequisites included, and what the character lacks |
 | `evaluate_profiles` | applied DPS vs frigate…structure targets and EHP vs EM/thermal/…/NPC damage profiles in one batch |
@@ -145,7 +147,7 @@ module is computed in one batch, and the reply is a ranked table:
 ## Development
 
 ```bash
-npm test          # builds, then runs integration tests that spawn the real engine on the real dataset
+npm test          # builds, then runs unit tests and integration tests that spawn the real engine on the real dataset
 npm run schemas   # regenerate schemas/tools/*.json
 ```
 

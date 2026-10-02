@@ -6,15 +6,15 @@ Updated: 2026-10-03 06:25 (Asia/Shanghai)
 - Engine adapters: `rpc` (serve-stdio JSONL, pipelined, worker pool, restart on crash, timeouts) and
   `cli` (calc/batch per call). Command templates via env, so any contract variant plugs in.
 - Dataset index in Node (search with jargon/zh/fuzzy, filters, fits_ship, layouts, skill trees, charges).
-- 15 tools, 10 resources (3 templates), 4 prompts; stdio + stateless Streamable HTTP.
+- 17 tools (incl. suggest_charges, sweep), 10 resources (3 templates), 4 prompts; stdio + stateless Streamable HTTP.
 - Input normalisation: EFT (engine), DNA (local), lenient JSON with names; default skills all V.
 - Helpers: what_if, suggest_modules (batched, two-stage when over budget), optimize_fit (greedy),
   evaluate_profiles, skill_requirements.
-- Tests: `npm test` (25 tests: tools, resources, prompts, adapters, variant C, HTTP).
+- Tests: `npm test` (34 tests: unit (index, DNA, normalisation, metrics) + integration (all tools, resources, prompts, adapters, variant C, HTTP)).
 
 ## Next
-- `graph` tool (dps vs range, cap vs time) once engines expose curves or via range sweeps.
-- Ammo optimiser (`suggest_charges`), drone suggestions, rig/implant suggestions.
+- Curves engines don't expose yet (dps vs distance to target, cap vs time).
+- Drone / implant / rig-specific suggestions.
 - Traits/bonuses text (not in the dataset yet).
 - npm package / release; `price_fit` (network, optional).
 

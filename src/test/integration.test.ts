@@ -16,7 +16,7 @@ describe("eve-fit-mcp (rpc adapter, eve-dogma-rs)", { skip: !haveEngine && "engi
   test("lists every tool with a JSON schema", async () => {
     const { tools } = await c.listTools();
     const names = tools.map((t) => t.name).sort();
-    for (const n of ["search_types", "get_type", "get_ship", "list_presets", "parse_fit", "export_fit", "validate_fit", "compute_fit", "compare_fits", "what_if", "suggest_modules", "optimize_fit", "skill_requirements", "evaluate_profiles", "engine_info"])
+    for (const n of ["search_types", "get_type", "get_ship", "list_presets", "parse_fit", "export_fit", "validate_fit", "compute_fit", "compare_fits", "what_if", "suggest_modules", "optimize_fit", "skill_requirements", "evaluate_profiles", "engine_info", "suggest_charges", "sweep"])
       assert.ok(names.includes(n), `missing tool ${n}`);
     for (const t of tools) {
       assert.equal(t.inputSchema.type, "object", t.name);
@@ -162,24 +162,15 @@ describe("eve-fit-mcp (rpc adapter, eve-dogma-rs)", { skip: !haveEngine && "engi
         { op: "set_state", index: 4, state: "offline" },
         { op: "remove_module", index: 1 },
         { op: "set_skill", skill: "Small Projectile Turret", level: 3 },
-        { op: "add_implant", type: "Inherent Implants 'Lancer' Small Projectile Turret SP-1004" },
+        { op: "add_implant", type: "Eifyr and Co. 'Gunslinger' Small Projectile Turret SP-606" },
       ],
       metrics: ["dps", "speed", "cap_stability"],
-    }).catch(async () =>
-      call(c, "what_if", {
-        eft: RIFTER_EFT,
-        changes: [
-          { op: "set_state", index: 4, state: "offline" },
-          { op: "remove_module", index: 1 },
-          { op: "set_skill", skill: "Small Projectile Turret", level: 3 },
-        ],
-        metrics: ["dps", "speed", "cap_stability"],
-      }),
-    );
+    });
     const [mwdOff, noGyro, lowSkill] = r.results;
     assert.ok(mwdOff.metrics.speed.delta < 0, "MWD offline is slower");
     assert.ok(noGyro.metrics.dps.delta < 0);
     assert.ok(lowSkill.metrics.dps.delta < 0);
+    assert.ok(r.results[3].metrics.dps.delta > 0, "damage implant adds dps");
     assert.match(r.table, /base/);
   });
 
@@ -224,6 +215,29 @@ describe("eve-fit-mcp (rpc adapter, eve-dogma-rs)", { skip: !haveEngine && "engi
     const base = await call(c, "compute_fit", { eft: RIFTER_EFT });
     const snake = await call(c, "compute_fit", { eft: RIFTER_EFT, implant_set: "High-grade Snake" });
     assert.ok(snake.metrics.speed > base.metrics.speed);
+  });
+
+  test("suggest_charges ranks ammo per weapon type", async () => {
+    const r = await call(c, "suggest_charges", { eft: RIFTER_EFT, goal: "weapon_range", top: 3 });
+    assert.deepEqual(r.weapons.map((w: any) => w.weapon).sort(), ["200mm AutoCannon II", "Small Ancillary Armor Repairer"]);
+    const w = r.weapons.find((x: any) => x.weapon === "200mm AutoCannon II");
+    assert.deepEqual(w.modules, [7, 8, 9]);
+    assert.ok(w.candidates > 5);
+    assert.match(w.ranked[0].charge, /Barrage|Tremor|Spike|Carbonized|Nuclear/);
+    const d = await call(c, "suggest_charges", { eft: RIFTER_EFT, top: 1, module_index: 7 });
+    assert.equal(d.weapons.length, 1);
+    assert.ok(d.weapons[0].ranked[0].dps >= 200);
+  });
+
+  test("sweep gives graph series", async () => {
+    const r = await call(c, "sweep", { eft: RIFTER_EFT, x: "target_signature", values: [20, 40, 400], target_profile: "frigate" });
+    const pts = r.series[0].points;
+    assert.equal(pts.length, 3);
+    assert.ok(pts[0][1] <= pts[2][1], "bigger targets take more damage");
+    const sk = await call(c, "sweep", { eft: RIFTER_EFT, x: "skill_level", y: ["dps"] });
+    const v = sk.series[0].points.map((p: any) => p[1]);
+    assert.equal(v.length, 6);
+    for (let i = 1; i < v.length; i++) assert.ok(v[i] >= v[i - 1]);
   });
 
   test("resources and prompts", async () => {

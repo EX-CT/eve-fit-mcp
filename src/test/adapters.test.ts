@@ -95,7 +95,7 @@ describe("adapters", { skip: !haveEngine && "engine or dataset missing" }, () =>
       const c = new Client({ name: "http-test", version: "0" });
       await c.connect(new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${port}/mcp`)));
       const { tools } = await c.listTools();
-      assert.ok(tools.length >= 15);
+      assert.ok(tools.length >= 17);
       const r = await call(c, "compute_fit", { eft: RIFTER_EFT });
       assert.deepEqual(r.metrics, base.metrics);
       await c.close();

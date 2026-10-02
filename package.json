@@ -7,7 +7,8 @@
     "start": "node dist/main.js",
     "start:http": "node dist/main.js --http",
     "test": "npm run build && node --test --test-concurrency=1 dist/test/*.test.js",
-    "schemas": "npm run build && node dist/tools/dump-schemas.js"
+    "schemas": "npm run build && node dist/tools/dump-schemas.js",
+    "prepare": "tsc -p ."
   },
   "repository": {
     "type": "git",
@@ -43,8 +44,11 @@
   },
   "files": [
     "dist",
+    "!dist/test",
     "schemas",
-    "README.md"
+    "docs",
+    "README.md",
+    "LICENSE"
   ],
   "main": "dist/main.js"
 }

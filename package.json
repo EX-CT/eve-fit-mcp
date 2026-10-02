@@ -1,18 +1,27 @@
 {
   "name": "eve-fit-mcp",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "version": "0.1.0",
+  "description": "Engine-agnostic MCP server for EVE Online ship fitting (search, validate, compute, compare, optimise) on top of any eve-dogma contract engine",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc -p .",
+    "start": "node dist/main.js",
+    "start:http": "node dist/main.js --http",
+    "test": "npm run build && node --test --test-concurrency=1 dist/test/",
+    "schemas": "npm run build && node dist/tools/dump-schemas.js"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/EX-CT/eve-fit-mcp.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "mcp",
+    "eve-online",
+    "dogma",
+    "fitting",
+    "pyfa"
+  ],
+  "author": "EX-CT",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/EX-CT/eve-fit-mcp/issues"
   },
@@ -24,5 +33,18 @@
   "devDependencies": {
     "@types/node": "^26.6.4",
     "typescript": "^7.0.2"
-  }
+  },
+  "type": "module",
+  "bin": {
+    "eve-fit-mcp": "dist/main.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "dist",
+    "schemas",
+    "README.md"
+  ],
+  "main": "dist/main.js"
 }

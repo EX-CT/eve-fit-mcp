@@ -45,10 +45,10 @@ function fail(e: unknown): ToolResult {
   return { content: [{ type: "text", text: `Error: ${code}${err?.message ?? String(e)}${path}` }], isError: true };
 }
 
-function wrap<A>(fn: (a: A) => Promise<ToolResult>) {
-  return async (a: A) => {
+function wrap<A>(fn: (a: A, extra?: any) => Promise<ToolResult>) {
+  return async (a: A, extra?: any) => {
     try {
-      return await fn(a);
+      return await fn(a, extra);
     } catch (e) {
       return fail(e);
     }
@@ -574,11 +574,17 @@ export function createServer(ctx: ServerDeps): McpServer {
       },
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
     },
-    wrap(async (a) => {
+    wrap(async (a, extra) => {
       const n = await norm(a);
       const goals = toGoals(a.goal as any);
       const budget = a.budget ?? Math.min(ctx.maxBatch * 4, 1600);
-      const r = await optimize(ctx, n.request, goals, a.constraints, budget, a.slots as Slot[] | undefined, a.lock ?? []);
+      const token = extra?._meta?.progressToken;
+      const onProgress =
+        token !== undefined && extra?.sendNotification
+          ? (evaluated: number, message: string) =>
+              extra.sendNotification({ method: "notifications/progress", params: { progressToken: token, progress: Math.min(evaluated, budget), total: budget, message } }).catch(() => {})
+          : undefined;
+      const r = await optimize(ctx, n.request, goals, a.constraints, budget, a.slots as Slot[] | undefined, a.lock ?? [], onProgress);
       let eft: string | null = null;
       try {
         eft = await ctx.engine.eftExport(r.request, "optimized");

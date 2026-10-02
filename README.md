@@ -38,7 +38,7 @@ Transports: **stdio**, and **Streamable HTTP** (`--http`; stateless, `POST /mcp`
 | `suggest_modules` | ranks every compatible module for a slot (fill it, or replace module *i*) by a goal (`dps`, `ehp`, `tank`, `speed`, `align`, `cap_stability`, `lock_range` … or a weighted mix) by computing each candidate. Drops candidates that add violations; `min`/`max` limits on any metric |
 | `suggest_charges` | for each weapon type in the fit, ranks every compatible charge by a goal (`dps`, `applied_dps`, `weapon_range` …) |
 | `sweep` | graph data: metrics vs target signature / target velocity / skill level / projected distance, in one batch |
-| `optimize_fit` | greedy local search: fill free slots, then apply the best swap until nothing improves. Takes budget, constraints, `lock` and `slots`; returns the trace and an EFT |
+| `optimize_fit` | greedy local search: fill free slots, then apply the best swap until nothing improves. Takes budget, constraints, `lock` and `slots`; returns the trace and an EFT. Reports MCP progress when the client sends a progress token |
 | `skill_requirements` | every skill the fit needs, prerequisites included, and what the character lacks |
 | `evaluate_profiles` | applied DPS vs frigate…structure targets and EHP vs EM/thermal/…/NPC damage profiles in one batch |
 | `engine_info` | engine, adapter, dataset build/sha256, and whether engine and index use the same dataset |
@@ -85,6 +85,7 @@ npm ci && npm run build
 | `EVE_FIT_MAX_BATCH` | `400` | candidate budget per suggest call (optimise: 4×, capped at 1600) |
 | `EVE_FIT_CACHE` | `2000` | calc results cached in memory by exact request (`0` = off) |
 | `EVE_FIT_HTTP_HOST` / `EVE_FIT_HTTP_PORT` | `127.0.0.1` / `8765` | for `--http` |
+| `EVE_FIT_ALLOWED_HOSTS` | loopback + bind host | extra `Host` header values accepted by `--http` (comma-separated; DNS-rebinding protection). `*` disables the check |
 
 The templates make any engine pluggable. For example, variant C (Go):
 `EVE_DOGMA_BIN=/path/eve-dogma-go`. It uses the same CLI shape, and its serve mode adds a response memo.

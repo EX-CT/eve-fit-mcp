@@ -24,6 +24,7 @@ export interface Config {
   cacheSize: number;
   httpHost: string;
   httpPort: number;
+  allowedHosts: string[] | null;
 }
 
 export const ENV_DOC: Record<string, string> = {
@@ -66,6 +67,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     cacheSize: Math.max(0, int(env.EVE_FIT_CACHE, 2000)),
     httpHost: env.EVE_FIT_HTTP_HOST || "127.0.0.1",
     httpPort: int(env.EVE_FIT_HTTP_PORT, 8765),
+    allowedHosts: env.EVE_FIT_ALLOWED_HOSTS === "*" ? null : env.EVE_FIT_ALLOWED_HOSTS ? env.EVE_FIT_ALLOWED_HOSTS.split(",").map((x) => x.trim()).filter(Boolean) : [],
   };
 }
 

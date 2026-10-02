@@ -311,7 +311,7 @@ export interface OptimizeStep {
 }
 
 /** Greedy improvement: fill free slots, then repeatedly apply the single best module swap until nothing helps. */
-export async function optimize(ctx: Ctx, base: FitRequest, goals: Goal[], constraints: any, budget: number, slots?: Slot[], lockIndices: number[] = []) {
+export async function optimize(ctx: Ctx, base: FitRequest, goals: Goal[], constraints: any, budget: number, slots?: Slot[], lockIndices: number[] = [], onProgress?: (evaluated: number, message: string) => void) {
   const ds = ctx.ds;
   let req: any = clone(base);
   const firstStats = await ctx.engine.calc(req);
@@ -361,6 +361,7 @@ export async function optimize(ctx: Ctx, base: FitRequest, goals: Goal[], constr
     req = mv.req;
     stats = ns;
     trace.push({ step: ++step, action: mv.action, score_after: round(goalScore(goals, stats, firstStats), 5)!, goal_values: gv(stats) });
+    onProgress?.(evaluated, `step ${step}: ${mv.action}`);
     if (step >= 40) break;
   }
   return { request: req, stats, firstStats, trace, evaluated };

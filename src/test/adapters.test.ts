@@ -3,6 +3,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
+import { request as httpRequest } from "node:http";
 import { after, before, describe, test } from "node:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
@@ -132,6 +133,19 @@ describe("adapters", { skip: !haveEngine && "engine or dataset missing" }, () =>
       const r = await call(c, "compute_fit", { eft: RIFTER_EFT });
       assert.deepEqual(r.metrics, base.metrics);
       await c.close();
+      // DNS-rebinding protection: a foreign Host header is refused
+      const status = await new Promise<number>((res, rej) => {
+        const q = httpRequest(
+          { host: "127.0.0.1", port, path: "/mcp", method: "POST", headers: { host: "evil.example", "content-type": "application/json", accept: "application/json, text/event-stream" } },
+          (rs) => {
+            rs.resume();
+            res(rs.statusCode ?? 0);
+          },
+        );
+        q.on("error", rej);
+        q.end(JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }));
+      });
+      assert.equal(status, 403);
     } finally {
       p.kill();
     }

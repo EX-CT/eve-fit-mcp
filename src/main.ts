@@ -74,6 +74,12 @@ async function main() {
 
   const port = Number(arg("--port") ?? cfg.httpPort);
   const host = arg("--host") ?? cfg.httpHost;
+  // DNS-rebinding protection: only accept Host headers naming this server (loopback by default).
+  // EVE_FIT_ALLOWED_HOSTS adds names (comma-separated); "*" disables the check.
+  const allowedHosts =
+    cfg.allowedHosts === null
+      ? undefined
+      : [...new Set([...["127.0.0.1", "localhost", "[::1]", host].flatMap((h) => [h, `${h}:${port}`]), ...cfg.allowedHosts])];
   // Stateless Streamable HTTP: every POST gets a fresh McpServer + transport; the engine and index are shared.
   const http = createHttpServer(async (req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
@@ -92,7 +98,12 @@ async function main() {
     try {
       const body = await readBody(req);
       const server = createServer(ctx);
-      const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
+      const transport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: undefined,
+        enableJsonResponse: true,
+        enableDnsRebindingProtection: allowedHosts !== undefined,
+        allowedHosts,
+      });
       res.on("close", () => {
         transport.close();
         server.close();

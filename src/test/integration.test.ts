@@ -201,6 +201,19 @@ describe("eve-fit-mcp (rpc adapter, eve-dogma-rs)", { skip: !haveEngine && "engi
     assert.match(r.eft ?? "", /^\[Rifter/);
   });
 
+  test("optimize_fit sends progress notifications when asked", async () => {
+    const seen: any[] = [];
+    const res: any = await c.callTool({ name: "optimize_fit", arguments: { eft: RIFTER_EFT, goal: "dps", budget: 200 } }, undefined, { onprogress: (p) => seen.push(p) });
+    assert.ok(!res.isError);
+    const r = res.structuredContent ?? JSON.parse(res.content[res.content.length - 1].text);
+    if (r.improved) {
+      assert.ok(seen.length >= 1, "progress notifications");
+      assert.equal(seen[0].total, 200);
+      assert.ok(seen[0].progress <= 200);
+      assert.match(seen[0].message, /^step 1:/);
+    }
+  });
+
   test("skill_requirements and presets", async () => {
     const r = await call(c, "skill_requirements", { eft: RIFTER_EFT, skills: 0 });
     assert.ok(r.missing > 5);

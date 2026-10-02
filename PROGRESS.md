@@ -21,3 +21,6 @@ Updated: 2026-10-03 06:25 (Asia/Shanghai)
 ## Notes for engine owners
 - Engines report `meta.dataset_sha256` of the decompressed JSON; the MCP checks both hashes.
 - `eft_parse` returns `default_level: null` for skills; the MCP replaces it with its default (all V).
+
+- `optimize_fit` emits `notifications/progress` (one per accepted step) when the client sends a progress token.
+- `--http` has DNS-rebinding protection (Host allow-list: loopback, the bind host, `EVE_FIT_ALLOWED_HOSTS`).

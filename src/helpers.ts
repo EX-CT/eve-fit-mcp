@@ -194,6 +194,20 @@ function violationCodes(s: any): string[] {
   return (s.violations ?? []).map((v: any) => v.code);
 }
 
+/** An overload that already exists may not get worse (otherwise "no new violations" lets CPU go ever more negative). */
+function worsensOverload(s: FitStats, base: FitStats): boolean {
+  for (const k of ["cpu_free", "power_free", "calibration_free"]) {
+    const v = metric(k).get(s);
+    const b = metric(k).get(base);
+    if (v !== null && b !== null && v < 0 && v < b - 1e-9) return true;
+  }
+  return false;
+}
+
+export function checkConstraintKeys(c: any) {
+  for (const k of [...Object.keys(c?.min ?? {}), ...Object.keys(c?.max ?? {})]) metric(k);
+}
+
 function passes(s: FitStats, c: any): boolean {
   for (const [k, v] of Object.entries<number>(c?.min ?? {})) if ((metric(k).get(s) ?? -Infinity) < v) return false;
   for (const [k, v] of Object.entries<number>(c?.max ?? {})) if ((metric(k).get(s) ?? Infinity) > v) return false;
@@ -214,6 +228,7 @@ export interface SuggestArgs {
 /** Evaluate candidate modules for one slot (added, or replacing module `replaceIndex`) and rank them by goal. */
 export async function suggest(ctx: Ctx, a: SuggestArgs): Promise<{ ranked: Scored[]; evaluated: number; candidates: number; strategy: string }> {
   const ds = ctx.ds;
+  checkConstraintKeys(a.constraints);
   const req: any = a.base;
   const ship = ds.type(req.ship.type_id)!;
   const cur = a.replaceIndex !== undefined ? req.modules[a.replaceIndex] : undefined;
@@ -251,7 +266,7 @@ async function score(ctx: Ctx, a: SuggestArgs, cands: TypeInfo[], cur: any): Pro
   res.forEach((s, i) => {
     if (isContractError(s)) return;
     const added = violationCodes(s).filter((c) => !baseViol.has(c));
-    if (added.length && !a.constraints?.allow_violations) return;
+    if (!a.constraints?.allow_violations && (added.length || worsensOverload(s, a.baseStats))) return;
     if (!passes(s, a.constraints)) return;
     const t = cands[i];
     const goal: Scored["goal"] = {};

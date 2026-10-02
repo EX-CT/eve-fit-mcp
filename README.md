@@ -81,6 +81,7 @@ npm ci && npm run build
 | `EVE_FIT_TIMEOUT_MS` | `60000` | per engine call |
 | `EVE_FIT_DEFAULT_SKILLS` | `5` | skill level when a fit gives none (engines alone default to 0) |
 | `EVE_FIT_MAX_BATCH` | `400` | candidate budget per suggest call (optimise: 4×, capped at 1600) |
+| `EVE_FIT_CACHE` | `2000` | calc results cached in memory by exact request (`0` = off) |
 | `EVE_FIT_HTTP_HOST` / `EVE_FIT_HTTP_PORT` | `127.0.0.1` / `8765` | for `--http` |
 
 The templates make any engine pluggable. For example, variant C (Go):

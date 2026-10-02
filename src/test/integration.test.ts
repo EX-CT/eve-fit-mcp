@@ -183,6 +183,12 @@ describe("eve-fit-mcp (rpc adapter, eve-dogma-rs)", { skip: !haveEngine && "engi
     const t2 = await call(c, "suggest_modules", { eft: RIFTER_EFT, replace_index: 1, goal: "ehp", constraints: { meta_max: 5 }, top: 3 });
     assert.ok(t2.suggestions.every((s: any) => s.meta_level <= 5));
     assert.ok(t2.suggestions[0].goal.ehp.delta > 0);
+    // overloaded base (CPU): candidates may not make the overload worse; metric floors are enforced
+    const c3 = await call(c, "suggest_modules", { eft: RIFTER_EFT, replace_index: 4, goal: "tank", constraints: { min: { cap_stability: 0 } }, top: 5 });
+    assert.ok(c3.suggestions.length > 0);
+    assert.ok(c3.suggestions.every((x: any) => x.fitting.cpu_free >= -29.75 - 1e-6), JSON.stringify(c3.suggestions.map((x: any) => x.fitting)));
+    const bad = await callErr(c, "suggest_modules", { eft: RIFTER_EFT, replace_index: 4, goal: "tank", constraints: { min: { nope: 1 } } });
+    assert.match(bad, /unknown metric/);
   });
 
   test("optimize_fit improves a goal within budget", async () => {

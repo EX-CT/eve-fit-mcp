@@ -1,5 +1,6 @@
 // All configuration comes from the environment (MCP clients pass env in their server config).
 import { existsSync } from "node:fs";
+import { CachingAdapter } from "./adapters/cache.js";
 import { CliAdapter } from "./adapters/cli.js";
 import { expandCommand } from "./adapters/cmd.js";
 import { RpcAdapter } from "./adapters/rpc.js";
@@ -18,6 +19,7 @@ export interface Config {
   /** Skill level applied when a fit gives no skills (engines default to 0, which surprises people). */
   defaultSkillLevel: number;
   maxBatch: number;
+  cacheSize: number;
   httpHost: string;
   httpPort: number;
 }
@@ -33,6 +35,7 @@ export const ENV_DOC: Record<string, string> = {
   EVE_FIT_TIMEOUT_MS: "per-call engine timeout (default 60000)",
   EVE_FIT_DEFAULT_SKILLS: "skill level for fits that give none (default 5, i.e. Pyfa 'All 5')",
   EVE_FIT_MAX_BATCH: "max candidate fits evaluated per helper call (default 400)",
+  EVE_FIT_CACHE: "calc results kept in memory by exact request (default 2000; 0 disables)",
   EVE_FIT_HTTP_HOST: "HTTP bind address for --http (default 127.0.0.1)",
   EVE_FIT_HTTP_PORT: "HTTP port for --http (default 8765)",
 };
@@ -56,6 +59,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     timeoutMs: Math.max(1000, int(env.EVE_FIT_TIMEOUT_MS, 60_000)),
     defaultSkillLevel: Math.min(5, Math.max(0, int(env.EVE_FIT_DEFAULT_SKILLS, 5))),
     maxBatch: Math.max(1, int(env.EVE_FIT_MAX_BATCH, 400)),
+    cacheSize: Math.max(0, int(env.EVE_FIT_CACHE, 2000)),
     httpHost: env.EVE_FIT_HTTP_HOST || "127.0.0.1",
     httpPort: int(env.EVE_FIT_HTTP_PORT, 8765),
   };
@@ -67,6 +71,11 @@ export function checkConfig(cfg: Config): void {
 }
 
 export function createAdapter(cfg: Config): EngineAdapter {
+  const a = createRawAdapter(cfg);
+  return cfg.cacheSize > 0 ? new CachingAdapter(a, cfg.cacheSize) : a;
+}
+
+function createRawAdapter(cfg: Config): EngineAdapter {
   const vars = { bin: cfg.bin, dataset: cfg.dataset };
   if (cfg.adapter === "cli")
     return new CliAdapter({

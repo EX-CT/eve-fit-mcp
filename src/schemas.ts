@@ -81,8 +81,8 @@ export const Constraints = z
     query: z.string().optional().describe("only candidates whose name matches (search syntax, jargon ok)"),
     exclude: z.array(TypeRef).optional(),
     allow_violations: z.boolean().optional().describe("keep candidates that add fitting violations (default false)"),
-    min: z.record(z.enum(METRIC_KEYS), z.number()).optional().describe("hard floors, e.g. {cap_stability: 0, cpu_free: 0}"),
-    max: z.record(z.enum(METRIC_KEYS), z.number()).optional().describe("hard ceilings, e.g. {signature: 150}"),
+    min: z.record(z.string(), z.number()).optional().describe("hard floors, e.g. {cap_stability: 0, cpu_free: 0}"),
+    max: z.record(z.string(), z.number()).optional().describe("hard ceilings, e.g. {signature: 150}"),
   })
   .optional();
 

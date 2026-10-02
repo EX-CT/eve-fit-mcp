@@ -1,18 +1,23 @@
-# PROGRESS — eve-fit-mcp
+# PROGRESS: eve-fit-mcp
 
-Updated: 2026-10-03 03:52 (Asia/Shanghai)
+Updated: 2026-10-03 06:25 (Asia/Shanghai)
 
-## State: WIP (paused — worker reassigned to dogma-lab variant B)
-- package.json / tsconfig (TypeScript, @modelcontextprotocol/sdk 1.32, zod).
-- `src/engine.ts`: persistent JSONL client for `eve-dogma serve-stdio`
-  (methods: calc, eft_parse, eft_export, search, type, meta).
+## State: working v0.1.0 (all integration tests pass against eve-dogma-rs and variant C)
+- Engine adapters: `rpc` (serve-stdio JSONL, pipelined, worker pool, restart on crash, timeouts) and
+  `cli` (calc/batch per call). Command templates via env, so any contract variant plugs in.
+- Dataset index in Node (search with jargon/zh/fuzzy, filters, fits_ship, layouts, skill trees, charges).
+- 15 tools, 10 resources (3 templates), 4 prompts; stdio + stateless Streamable HTTP.
+- Input normalisation: EFT (engine), DNA (local), lenient JSON with names; default skills all V.
+- Helpers: what_if, suggest_modules (batched, two-stage when over budget), optimize_fit (greedy),
+  evaluate_profiles, skill_requirements.
+- Tests: `npm test` (25 tests: tools, resources, prompts, adapters, variant C, HTTP).
 
-## Next (per eve-fit-docs/docs/06-mcp-design.md)
-- In-process dataset index (load dataset gz in Node: category/slot filters, jargon aliases, zh names).
-- Tools: search_types, get_type, list_ship_slots, parse_fit, export_fit, validate_fit, compute_fit,
-  compare_fits, what_if, suggest_modules, optimize_fit, skill_requirements, damage/target profiles.
-- Resources, prompts, stdio + streamable HTTP transports, tests against real engine, README.
+## Next
+- `graph` tool (dps vs range, cap vs time) once engines expose curves or via range sweeps.
+- Ammo optimiser (`suggest_charges`), drone suggestions, rig/implant suggestions.
+- Traits/bonuses text (not in the dataset yet).
+- npm package / release; `price_fit` (network, optional).
 
 ## Notes for engine owners
-- Engine `meta` lacks `request_hash`; MCP can compute sha256 of canonical request until engine adds it.
-- `search` RPC has no category/slot filter; MCP will index the dataset itself.
+- Engines report `meta.dataset_sha256` of the decompressed JSON; the MCP checks both hashes.
+- `eft_parse` returns `default_level: null` for skills; the MCP replaces it with its default (all V).

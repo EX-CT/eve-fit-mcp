@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "get_ship",
-  "description": "Slots, hardpoints, rig size, CPU/powergrid/calibration, drone bay and bandwidth for a hull, plus the empty hull's computed stats with the given skills (default all V): what you have to work with before fitting.",
+  "description": "Slots, hardpoints, rig size, CPU/powergrid/calibration, drone bay and bandwidth for a hull, its traits (role bonuses and bonuses per level of each hull skill, English + Chinese), plus the empty hull's computed stats with the given skills (default all V): what you have to work with before fitting.",
   "type": "object",
   "properties": {
     "ship": {

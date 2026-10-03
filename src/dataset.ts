@@ -235,6 +235,33 @@ function lev(a: string, b: string, max: number): number {
   return prev[b.length];
 }
 
+interface RawTrait {
+  bonus: number | null;
+  importance?: number;
+  text: string;
+  text_zh?: string | null;
+  unit: number | null;
+}
+interface RawTraits {
+  role?: RawTrait[];
+  skills?: Record<string, RawTrait[]>;
+  misc?: RawTrait[];
+}
+export interface TraitLine {
+  bonus: number | null;
+  unit: string | null;
+  text: string;
+  text_zh: string | null;
+  /** e.g. "5% bonus to Medium Hybrid Turret damage" */
+  line: string;
+}
+export interface ShipTraits {
+  role: TraitLine[];
+  skills: { skill_id: number; skill: string; per_level: TraitLine[] }[];
+  misc: TraitLine[];
+}
+const stripTags = (s: string) => s.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+
 export class Dataset {
   readonly path: string;
   /** sha256 of the file as given (gz) */
@@ -254,6 +281,10 @@ export class Dataset {
   /** Market-group tree (pipeline `market_groups`, r4+); empty for older datasets. */
   readonly marketGroups = new Map<number, MarketGroupInfo>();
   readonly metaGroups = new Map<number, { name: string; nameZh: string | null }>();
+  /** Ship bonus text (pipeline `traits`, r5+): role / per-skill / misc bonus lines; empty for older datasets. */
+  readonly traits = new Map<number, RawTraits>();
+  /** Dogma unit id -> display suffix (pipeline `units`, r5+). */
+  readonly units = new Map<number, string>();
   private byName = new Map<string, TypeInfo>();
   private normNames: { t: TypeInfo; en: string; zh: string }[] = [];
   readonly loadMs: number;
@@ -349,7 +380,27 @@ export class Dataset {
     this.normNames.sort((a, b) => a.t.id - b.t.id);
     for (const g of this.marketGroups.values()) if (g.parent !== null) this.marketGroups.get(g.parent)?.children.push(g.id);
     for (const t of this.types.values()) if (t.published && t.marketGroup !== null) this.marketGroups.get(t.marketGroup)?.types.push(t.id);
+    for (const [id, u] of Object.entries<any>(d.units ?? {})) if (u?.display) this.units.set(+id, u.display);
+    for (const [id, tr] of Object.entries<any>(d.traits ?? {})) this.traits.set(+id, tr);
     this.loadMs = performance.now() - t0;
+  }
+
+  /** Ship traits (Pyfa / show-info "Traits"): role bonuses, bonuses per level of each hull skill, misc lines. */
+  shipTraits(t: TypeInfo): ShipTraits | null {
+    const tr = this.traits.get(t.id);
+    if (!tr) return null;
+    const lines = (xs: RawTrait[] | undefined): TraitLine[] =>
+      [...(xs ?? [])].sort((a, b) => (a.importance ?? 0) - (b.importance ?? 0)).map((x) => {
+        const text = stripTags(x.text ?? "");
+        const unit = x.unit !== null && x.unit !== undefined ? this.units.get(x.unit) ?? "" : "";
+        const amount = x.bonus === null || x.bonus === undefined ? "" : `${+x.bonus}${unit === "%" ? "%" : unit ? ` ${unit}` : ""} `;
+        return { bonus: x.bonus ?? null, unit: unit || null, text, text_zh: x.text_zh ? stripTags(x.text_zh) : null, line: `${amount}${text}` };
+      });
+    return {
+      role: lines(tr.role),
+      skills: Object.entries(tr.skills ?? {}).map(([sid, xs]) => ({ skill_id: +sid, skill: this.type(+sid)?.name ?? sid, per_level: lines(xs) })),
+      misc: lines(tr.misc),
+    };
   }
 
   /** Does an engine-reported dataset hash refer to this file? (engines hash either the gz file or the JSON) */

@@ -178,7 +178,7 @@ export function createServer(ctx: ServerDeps): McpServer {
     {
       title: "Ship layout",
       description:
-        "Slots, hardpoints, rig size, CPU/powergrid/calibration, drone bay and bandwidth for a hull, plus the empty hull's computed stats with the given skills (default all V): what you have to work with before fitting.",
+        "Slots, hardpoints, rig size, CPU/powergrid/calibration, drone bay and bandwidth for a hull, its traits (role bonuses and bonuses per level of each hull skill, English + Chinese), plus the empty hull's computed stats with the given skills (default all V): what you have to work with before fitting.",
       inputSchema: {
         ship: z.union([z.number().int(), z.string()]),
         skills: fitInputShape.skills,
@@ -193,6 +193,7 @@ export function createServer(ctx: ServerDeps): McpServer {
       return ok({
         ship: { type_id: t.id, name: t.name, name_zh: t.nameZh, group: t.group },
         base_layout: ds.shipLayout(t),
+        traits: ds.shipTraits(t),
         with_skills: {
           resources: (s as any).resources,
           defense: sum.defense,

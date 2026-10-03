@@ -60,6 +60,35 @@ describe(`eve-fit-mcp (rpc adapter, ${basename(ENGINE_BIN)})`, { skip: !haveEngi
     assert.ok(s.with_skills.resources.cpu.total > s.base_layout.resources.cpu, "skills raise CPU");
   });
 
+  test("mcp.integration.get-ship-traits: get_ship lists the hull traits (role + per-skill bonus lines, en/zh) and the bonus shows in the numbers (Cerberus, T2)", async () => {
+    const s = await call(c, "get_ship", { ship: "Cerberus" });
+    const roles = s.traits.role.map((x: any) => x.line);
+    assert.ok(roles.includes("50% reduction in Microwarpdrive signature radius penalty"), roles.join(" | "));
+    assert.ok(roles.includes("Can fit Assault Damage Controls"), "bonus-less role line has no amount");
+    const hac = s.traits.skills.find((x: any) => x.skill === "Heavy Assault Cruisers");
+    const cc = s.traits.skills.find((x: any) => x.skill === "Caldari Cruiser");
+    assert.ok(hac && cc, JSON.stringify(s.traits.skills.map((x: any) => x.skill)));
+    assert.equal(hac.skill_id, 16591);
+    assert.deepEqual(
+      hac.per_level.map((x: any) => [x.bonus, x.unit, x.line]),
+      [
+        [7.5, "%", "7.5% bonus to Shield Booster amount"],
+        [5, "%", "5% bonus to Rapid Light Missile, Heavy Missile and Heavy Assault Missile Launcher rate of fire"],
+      ],
+    );
+    assert.equal(cc.per_level[0].line, "2.5% bonus to Light Missile, Heavy Missile and Heavy Assault Missile damage");
+    assert.ok(hac.per_level.every((x: any) => x.text_zh && !/[<>]/.test(x.text_zh) && !/[<>]/.test(x.text)), "markup stripped");
+    assert.deepEqual(s.traits.misc, []);
+    // the HAC rate-of-fire line per level: launcher DPS at HAC V / HAC IV = (1 - 4*5%) / (1 - 5*5%)
+    const fit = { ship: "Cerberus", modules: ["Heavy Assault Missile Launcher II, Scourge Heavy Assault Missile"] };
+    const v = await call(c, "compute_fit", { fit, skills: 5 });
+    const iv = await call(c, "compute_fit", { fit, skills: { default_level: 5, levels: { "Heavy Assault Cruisers": 4 } } });
+    const ratio = v.metrics.weapon_dps / iv.metrics.weapon_dps;
+    assert.ok(Math.abs(ratio - 0.8 / 0.75) < 1e-3, `HAC V/IV dps ratio ${ratio}`);
+    const r = await call(c, "get_ship", { ship: "Rifter" });
+    assert.ok(r.traits.skills.some((x: any) => x.skill === "Minmatar Frigate" && x.per_level.length >= 2));
+  });
+
   // Pyfa EFT import states are F behaviour (eve-dogma-rs, frozen, imports every activatable as active): only for the default engine.
   test("mcp.integration.eft-import-states: EFT import states (regression: F eft_parse fix, eve-dogma 1dc951b): weapons active, MJD/cloak online, /OFFLINE offline", { skip: basename(ENGINE_BIN) !== "eve-fit" && "Pyfa EFT states are checked on engine F (eve-fit) only" }, async () => {
     // RIFTER_EFT (3x 200mm AC II, Gyro II, 2 rigs, Warrior II): weapon 196.66 + drone 16.09 = 212.75 DPS, identical on F

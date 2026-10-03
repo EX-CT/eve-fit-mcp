@@ -5,16 +5,21 @@ Every case FitRequest is sent as-is to the MCP tool `compute_fit` ({fit: <case>,
 (JSON-RPC, `node dist/main.js`), so the numbers pass through the MCP's request normalisation, adapter and
 response path, not just the engine. The responses are scored like the bench does it:
 
-  core  cases/*.json vs expected/*.json        (run.py `score`, tools/metrics.py tolerances)
-  ext   ext/cases + ext/unit/cases              (ext/tools/score.py, with this script as its --batch-cmd)
+  core     cases/*.json vs expected/*.json     (run.py `score`, tools/metrics.py tolerances)
+  ext      ext/cases + ext/unit/cases           (ext/tools/score.py, with this script as its --batch-cmd)
+  effects  effects/cases (one micro-fit per dogma effect, full attribute dump; effects/tools/score.py). The engine
+           itself does not pass every case, so this suite must match the engine run directly (--engine-cmd):
+           every case the engine passes must pass through the MCP too.
+  cap      cap/cases of the bench cap-suite branch (--cap-bench checkout; cap/run_cap.py, CONTRACT-CAP tolerances)
 
 usage:
-  python3 tools/mcp-dogma-bench.py run --bench PATH [--suite core,ext] [--out results.json] [--min-pass 1.0]
+  python3 tools/mcp-dogma-bench.py run --bench PATH [--cap-bench PATH] [--suite core,ext,effects,cap] [--out results.json]
+                                       [--min-pass 1.0] [--engine-cmd "eve-fit batch"]
   python3 tools/mcp-dogma-bench.py batch          # JSONL FitRequests on stdin -> JSONL FitStats (score.py adapter)
 
 The server gets the environment as is (EVE_DOGMA_BIN, EVE_DOGMA_DATASET, ...). Exit status is non-zero when any
 suite passes fewer than --min-pass of its cases (default: all of them).
-Ids: suite `mcp-bench` (core case <name> = mcp-bench.core.<name>, ext case = mcp-bench.ext.<name>).
+Ids: suite `mcp-bench` (case <name> of suite S = mcp-bench.S.<name>, e.g. mcp-bench.core.exct_rifter).
 """
 import argparse, json, os, pathlib, subprocess, sys, time
 
@@ -129,6 +134,46 @@ def run_ext(bench, out, tmp):
     return d["pass"], d["total"]
 
 
+def run_effects(bench, out, tmp, engine_cmd):
+    score = bench / "effects" / "tools" / "score.py"
+    me = f"{sys.executable} {pathlib.Path(__file__).resolve()} batch"
+    res = {}
+    for name, cmd in (("engine", engine_cmd), ("mcp-bench", me)):
+        rpath = tmp / f"effects-{name}.json"
+        r = subprocess.run([sys.executable, str(score), "--batch-cmd", cmd, "--name", name, "--out", str(rpath)], cwd=ROOT, text=True, capture_output=True)
+        print("\n".join(l for l in r.stdout.splitlines()[:2]))
+        if r.returncode != 0 or not rpath.exists():
+            print(r.stderr[-2000:])
+            out["effects"] = {"error": r.stderr[-2000:]}
+            return 0, 1
+        res[name] = json.loads(rpath.read_text())["cases"]
+    eng = {k for k, c in res["engine"].items() if c["pass"]}
+    mcp = {k for k, c in res["mcp-bench"].items() if c["pass"]}
+    lost = sorted(eng - mcp)
+    print(f"mcp-bench effects: {len(mcp)}/{len(res['mcp-bench'])} pass, engine direct {len(eng)}/{len(res['engine'])}; "
+          f"lost through the MCP: {len(lost)}" + (f" ({' '.join(lost[:20])})" if lost else ""))
+    out["effects"] = {"pass": len(mcp), "total": len(res["mcp-bench"]), "engine_pass": len(eng), "lost": lost,
+                      "engine_failing": sorted(set(res["engine"]) - eng)}
+    # parity: every engine pass must survive the MCP (score = MCP passes among engine passes)
+    return len(eng & mcp), len(eng)
+
+
+def run_cap(cap_bench, out):
+    if cap_bench is None:
+        raise SystemExit("--suite cap needs --cap-bench (checkout of the bench cap-suite branch, engines.lock DOGMA_BENCH_CAP_SHA)")
+    me = f"{sys.executable} {pathlib.Path(__file__).resolve()} batch"
+    r = subprocess.run([sys.executable, "cap/run_cap.py", "--batch-cmd", me, "--name", "mcp-bench"], cwd=cap_bench, text=True, capture_output=True)
+    print("mcp-bench cap: " + (r.stdout.strip().splitlines() or [""])[-1])
+    rpath = cap_bench / "cap" / "results" / "mcp-bench.json"
+    if r.returncode != 0 or not rpath.exists():
+        print(r.stderr[-2000:])
+        out["cap"] = {"error": r.stderr[-2000:]}
+        return 0, 1
+    d = json.loads(rpath.read_text())
+    out["cap"] = {k: d[k] for k in ("cases", "cases_ok", "per_metric", "per_category")} | {"failing": [x for x in d.get("rows", []) if not x.get("ok", True)][:20]}
+    return d["cases_ok"], d["cases"]
+
+
 def cmd_run(a):
     bench = pathlib.Path(a.bench).resolve()
     if not (bench / "run.py").exists():
@@ -137,8 +182,14 @@ def cmd_run(a):
         raise SystemExit("dist/main.js missing: npm run build first")
     out, ok = {"bench": str(bench)}, True
     tmp = pathlib.Path(os.environ.get("RUNNER_TEMP", "/tmp"))
+    runners = {
+        "core": run_core,
+        "ext": lambda b, o: run_ext(b, o, tmp),
+        "effects": lambda b, o: run_effects(b, o, tmp, a.engine_cmd),
+        "cap": lambda b, o: run_cap(pathlib.Path(a.cap_bench).resolve() if a.cap_bench else None, o),
+    }
     for suite in a.suite.split(","):
-        p, t = {"core": run_core, "ext": lambda b, o: run_ext(b, o, tmp)}[suite](bench, out)
+        p, t = runners[suite](bench, out)
         if t == 0 or p / t < a.min_pass:
             print(f"mcp-bench {suite}: {p}/{t} below --min-pass {a.min_pass}")
             ok = False
@@ -152,7 +203,10 @@ def main():
     sub = ap.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("run")
     r.add_argument("--bench", required=True, help="eve-dogma-bench checkout (engines.lock DOGMA_BENCH_SHA)")
-    r.add_argument("--suite", default="core,ext")
+    r.add_argument("--cap-bench", help="bench checkout at the cap-suite branch (engines.lock DOGMA_BENCH_CAP_SHA)")
+    r.add_argument("--suite", default="core,ext,effects,cap")
+    r.add_argument("--engine-cmd", default=f"{os.environ.get('EVE_DOGMA_BIN', 'eve-fit')} batch",
+                   help="the engine run directly, as the effects baseline (default: $EVE_DOGMA_BIN batch)")
     r.add_argument("--out")
     r.add_argument("--min-pass", type=float, default=1.0)
     sub.add_parser("batch")

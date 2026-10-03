@@ -15,6 +15,8 @@ VARIANT_F_REPO=EX-CT/eve-dogma
 VARIANT_F_SHA=2da81501b85dfa216857a2e7a5c59043dadc5937
 VARIANT_F_PACKAGE=eve-cli
 # Bench cases replayed through the MCP by tools/mcp-dogma-bench.py in CI (compute_fit detail:"full" vs expected):
-# EX-CT/eve-dogma-bench pending-1.11 (core cases/ + ext/ suites, inventory/mcp-web-gaps.md).
+# EX-CT/eve-dogma-bench pending-1.11 (core cases/, ext/, effects/ suites; inventory/mcp-web-gaps.md) and the cap-suite
+# branch (cap/ capacitor suite, CONTRACT-CAP).
 DOGMA_BENCH_REPO=EX-CT/eve-dogma-bench
 DOGMA_BENCH_SHA=1a8be053df601b3f0ff6b4860d4fb3002ba5b8de
+DOGMA_BENCH_CAP_SHA=d80cc38093416bda0f2f271a5f3b439c45648f1b

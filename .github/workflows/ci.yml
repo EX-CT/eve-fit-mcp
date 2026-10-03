@@ -58,13 +58,17 @@ jobs:
           grep -q '^# fail 0' test.log
           if grep -qE 'SKIP (engine|dataset)|engine or dataset missing|dataset missing' test.log; then echo "engine/dataset suites skipped"; exit 1; fi
           grep -E '^# (tests|pass|fail|skipped)' test.log >> "$GITHUB_STEP_SUMMARY"
-      - name: Bench corpus through the MCP (tools/mcp-dogma-bench.py, suite mcp-bench; bench sha in engines.lock)
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Bench corpus through the MCP (tools/mcp-dogma-bench.py, suite mcp-bench; bench shas in engines.lock)
         run: |
+          pip install -q pyyaml
           git clone -q "https://github.com/$DOGMA_BENCH_REPO" "$RUNNER_TEMP/bench"
+          git -C "$RUNNER_TEMP/bench" worktree add -q "$RUNNER_TEMP/bench-cap" "$DOGMA_BENCH_CAP_SHA"
           git -C "$RUNNER_TEMP/bench" checkout -q "$DOGMA_BENCH_SHA"
           set -o pipefail
-          python3 tools/mcp-dogma-bench.py run --bench "$RUNNER_TEMP/bench" --out mcp-bench.json | tee bench.log
-          { echo "mcp-bench ($DOGMA_BENCH_REPO@${DOGMA_BENCH_SHA:0:7}):"; grep -E '^mcp-bench' bench.log; } >> "$GITHUB_STEP_SUMMARY"
+          python3 tools/mcp-dogma-bench.py run --bench "$RUNNER_TEMP/bench" --cap-bench "$RUNNER_TEMP/bench-cap" --out mcp-bench.json | tee bench.log
+          { echo "mcp-bench ($DOGMA_BENCH_REPO@${DOGMA_BENCH_SHA:0:7}, cap-suite@${DOGMA_BENCH_CAP_SHA:0:7}):"; grep -E '^mcp-bench' bench.log; } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

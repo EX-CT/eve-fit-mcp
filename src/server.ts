@@ -16,7 +16,7 @@ import { DAMAGE_PROFILES, implantSets, SKILL_PRESETS, TARGET_PROFILES } from "./
 import { Change, Constraints, fitInputShape, FitInputObject, GoalSpec, z } from "./schemas.js";
 import { markdownTable, pickSections, SECTIONS, summarize } from "./summary.js";
 
-export const VERSION = "0.2.1";
+export const VERSION = "0.2.2";
 const here = dirname(fileURLToPath(import.meta.url));
 
 function readAsset(rel: string): string {

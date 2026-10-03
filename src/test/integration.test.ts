@@ -60,6 +60,28 @@ describe(`eve-fit-mcp (rpc adapter, ${basename(ENGINE_BIN)})`, { skip: !haveEngi
     assert.ok(s.with_skills.resources.cpu.total > s.base_layout.resources.cpu, "skills raise CPU");
   });
 
+  // Pyfa EFT import states are F behaviour (eve-dogma-rs, frozen, imports every activatable as active): only for the default engine.
+  test("EFT import states (regression: F eft_parse fix, eve-dogma 1dc951b): weapons active, MJD/cloak online, /OFFLINE offline", { skip: basename(ENGINE_BIN) !== "eve-fit" && "Pyfa EFT states are checked on engine F (eve-fit) only" }, async () => {
+    // RIFTER_EFT (3x 200mm AC II, Gyro II, 2 rigs, Warrior II): weapon 196.66 + drone 16.09 = 212.75 DPS, identical on F
+    // (eve-dogma 1dc951b) and eve-dogma-rs. Before the fix F parsed the turrets "online": weapon DPS 0, total 16.09.
+    const r = await call(c, "compute_fit", { eft: RIFTER_EFT, detail: "full", sections: ["offense"] });
+    const w = r.offense.total.weapon_dps;
+    assert.ok(Math.abs(w - 196.658) < 0.01, `weapon dps ${w}`);
+    assert.ok(Math.abs(r.offense.total.dps.total - 212.746) < 0.01, `dps ${r.offense.total.dps.total}`);
+    const p = await call(c, "parse_fit", {
+      eft: "[Rifter, states]\nGyrostabilizer II /OFFLINE\n\nLarge Micro Jump Drive\n5MN Microwarpdrive II\n\n200mm AutoCannon II, Republic Fleet EMP S\nPrototype Cloaking Device I\n\n\nWarrior II x2",
+    });
+    const st = Object.fromEntries(p.items.modules.map((m: any) => [m.name, m.state]));
+    assert.deepEqual(st, {
+      "Gyrostabilizer II": "offline",
+      "Large Micro Jump Drive": "online",
+      "5MN Microwarpdrive II": "active",
+      "200mm AutoCannon II": "active",
+      "Prototype Cloaking Device I": "online",
+    });
+    assert.equal(p.request.drones[0].active, 2);
+  });
+
   test("compute_fit from EFT: summary with metrics", async () => {
     const r = await call(c, "compute_fit", { eft: RIFTER_EFT });
     assert.equal(r.ship.name, "Rifter");

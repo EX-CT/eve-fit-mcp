@@ -79,7 +79,7 @@ straight from the release.
 
    ```bash
    EVE_DOGMA_DATASET=/path/to/dataset.json.gz cargo install --locked \
-     --git https://github.com/EX-CT/eve-dogma --rev 8b85262e6298dfe2e5147cb17207a6e64322fe4e eve-cli   # installs eve-fit
+     --git https://github.com/EX-CT/eve-dogma --rev 1dc951bb2ed377055a3262b4a301b790cc509444 eve-cli   # installs eve-fit
    ```
 
    Any other contract engine works through `EVE_DOGMA_BIN`, e.g. eve-dogma-rs (variant A, frozen):
@@ -106,7 +106,7 @@ straight from the release.
      }
      ```
 
-To pin a version, replace `latest/download/eve-fit-mcp.tgz` with e.g. `download/v0.2.1/eve-fit-mcp-0.2.1.tgz`. To install
+To pin a version, replace `latest/download/eve-fit-mcp.tgz` with e.g. `download/v0.2.2/eve-fit-mcp-0.2.2.tgz`. To install
 globally, run `npm install -g https://github.com/EX-CT/eve-fit-mcp/releases/latest/download/eve-fit-mcp.tgz` and use `"command": "eve-fit-mcp"`. Check the install with
 `npx -y --package=https://github.com/EX-CT/eve-fit-mcp/releases/latest/download/eve-fit-mcp.tgz eve-fit-mcp --help`.
 
@@ -141,7 +141,6 @@ npm ci && npm run build
 The templates make any engine pluggable. For example, eve-dogma-rs (variant A): `EVE_DOGMA_BIN=/path/eve-dogma`;
 variant C (Go): `EVE_DOGMA_BIN=/path/eve-dogma-go` (same CLI shape; its serve mode adds a response memo). F (`eve-fit`, and the older `eve-dogma-f`)
 accepts and ignores `--dataset` (its dataset is compiled in), so the default templates work for all of them.
-EFT input gets the MCP's own default module states (same as DNA / JSON input) whatever the engine's `eft_parse` assigns.
 
 ### Claude Desktop
 
@@ -222,9 +221,6 @@ against it (only the variant C suites skip there). They cover:
   engine (identical numbers and identical EFT export);
 * a bad engine binary;
 * Streamable HTTP.
-
-TODO: F's owner is fixing `eft_parse` (turrets/launchers parsed "online"); after that fix, bump `VARIANT_F_SHA` in
-`engines.lock` and the install command above, and drop the EFT default-state workaround in `src/fit.ts`.
 
 ## Design notes
 * **Stateless.** Every call carries the whole fit. Notes say what was assumed (e.g. skills).

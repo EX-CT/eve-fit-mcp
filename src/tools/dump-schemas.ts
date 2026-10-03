@@ -10,7 +10,8 @@ import { Dataset } from "../dataset.js";
 import { createServer } from "../server.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const dataset = process.env.EVE_DOGMA_DATASET ?? "/workspace/exct-eve/data/dataset-3569502.json.gz";
+// Optional (tool schemas do not depend on it). Default: <EVE_FIT_DEV_ROOT or the parent of the repo>/data/dataset-3569502.json.gz.
+const dataset = process.env.EVE_DOGMA_DATASET ?? join(process.env.EVE_FIT_DEV_ROOT ?? join(root, ".."), "data", "dataset-3569502.json.gz");
 const noEngine = new Proxy({ kind: "none" }, { get: (t: any, k) => t[k] ?? (() => Promise.reject(new Error("no engine"))) }) as EngineAdapter;
 // Tool schemas do not depend on the dataset; without one (e.g. in CI) a stub that throws on use is enough.
 const noDataset = new Proxy({}, { get: (_t, k) => (k === "then" ? undefined : () => { throw new Error("no dataset"); }) }) as unknown as Dataset;

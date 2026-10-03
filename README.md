@@ -194,8 +194,11 @@ npm test          # builds, then runs unit tests and integration tests that spaw
 npm run schemas   # regenerate schemas/tools/*.json
 ```
 
-Tests use `/workspace/exct-eve/...` paths by default; override them with `EVE_DOGMA_BIN`, `EVE_DOGMA_DATASET`
-and `EVE_DOGMA_GO_BIN`. They cover:
+Tests find the engine and dataset through `EVE_DOGMA_DATASET`, `EVE_DOGMA_BIN` (eve-dogma-rs) and `EVE_DOGMA_GO_BIN`
+(variant C). Without them, they look for sibling checkouts under `EVE_FIT_DEV_ROOT`, which defaults to the parent
+directory of this repo: `data/dataset-3569502.json.gz`, `eve-dogma-rs/target/release/eve-dogma` and
+`lab-c/variant-c/bin/eve-dogma-go`. Suites whose engine or dataset is missing are skipped. CI therefore runs the unit
+tests only. They cover:
 * every tool, resource and prompt;
 * EFT/DNA/JSON equivalence;
 * the cli adapter, the worker pool, the http adapter (against `eve-dogma-go serve-http`), and variant C as the

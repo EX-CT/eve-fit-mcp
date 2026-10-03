@@ -8,9 +8,13 @@ import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 export const MAIN = join(here, "..", "main.js");
 
-export const DATASET = process.env.EVE_DOGMA_DATASET ?? "/workspace/exct-eve/data/dataset-3569502.json.gz";
-export const RS_BIN = process.env.EVE_DOGMA_BIN ?? "/workspace/exct-eve/eve-dogma-rs/target/release/eve-dogma";
-export const GO_BIN = process.env.EVE_DOGMA_GO_BIN ?? "/workspace/exct-eve/lab-c/variant-c/bin/eve-dogma-go";
+// Engine/dataset locations come from the environment. Fallbacks assume sibling checkouts next to this repo
+// (EVE_FIT_DEV_ROOT, default: the parent directory of the repo): <root>/data/dataset-3569502.json.gz,
+// <root>/eve-dogma-rs/target/release/eve-dogma, <root>/lab-c/variant-c/bin/eve-dogma-go. Missing files skip the suites.
+export const DEV_ROOT = process.env.EVE_FIT_DEV_ROOT ?? join(here, "..", "..", "..");
+export const DATASET = process.env.EVE_DOGMA_DATASET ?? join(DEV_ROOT, "data", "dataset-3569502.json.gz");
+export const RS_BIN = process.env.EVE_DOGMA_BIN ?? join(DEV_ROOT, "eve-dogma-rs", "target", "release", "eve-dogma");
+export const GO_BIN = process.env.EVE_DOGMA_GO_BIN ?? join(DEV_ROOT, "lab-c", "variant-c", "bin", "eve-dogma-go");
 
 export const haveEngine = existsSync(DATASET) && existsSync(RS_BIN);
 

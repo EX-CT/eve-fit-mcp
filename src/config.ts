@@ -40,6 +40,12 @@ export const ENV_DOC: Record<string, string> = {
   EVE_FIT_DEFAULT_SKILLS: "skill level for fits that give none (default 5, i.e. Pyfa 'All 5')",
   EVE_FIT_MAX_BATCH: "max candidate fits evaluated per helper call (default 400)",
   EVE_FIT_CACHE: "calc results kept in memory by exact request (default 2000; 0 disables)",
+  EVE_FIT_PRICE_SOURCE: "price source for get_prices / price_fit: `esi` (default; CCP ESI /markets/prices/, universe average) or `fuzzwork` (trade-hub sell/buy percentile)",
+  EVE_FIT_PRICE_SYSTEM: "trade hub for fuzzwork: jita (default), amarr, dodixie, rens, hek",
+  EVE_FIT_PRICE_CACHE: "price cache directory (default $XDG_CACHE_HOME/eve-fit-mcp or ~/.cache/eve-fit-mcp; `off` = memory only)",
+  EVE_FIT_PRICE_TTL_S: "price cache lifetime in seconds (default 3600; ESI uses its Expires header)",
+  EVE_FIT_OFFLINE: "1 = never fetch prices; use the cache whatever its age (results say stale)",
+  EVE_FIT_USER_AGENT: "User-Agent sent to ESI / Fuzzwork (default names this project; add your contact per ESI etiquette)",
   EVE_FIT_HTTP_HOST: "HTTP bind address for --http (default 127.0.0.1)",
   EVE_FIT_HTTP_PORT: "HTTP port for --http (default 8765)",
 };

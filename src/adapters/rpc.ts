@@ -160,6 +160,10 @@ export class RpcAdapter implements EngineAdapter {
     return unwrap<EngineMeta>(await this.pick().call("meta", {}));
   }
 
+  async call<T = unknown>(method: string, params: unknown): Promise<T> {
+    return unwrap<T>(await this.pick().call(method, params));
+  }
+
   async close(): Promise<void> {
     for (const w of this.workers) w.close();
   }

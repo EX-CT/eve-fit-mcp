@@ -71,6 +71,10 @@ export class CachingAdapter implements EngineAdapter {
     return { ...(await this.inner.meta()), mcp_cache: { size: this.m.size, max: this.max, hits: this.hits, misses: this.misses } };
   }
 
+  call<T = unknown>(method: string, params: unknown): Promise<T> {
+    return this.inner.call<T>(method, params);
+  }
+
   close(): Promise<void> {
     return this.inner.close();
   }

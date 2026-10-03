@@ -44,5 +44,8 @@ export interface EngineAdapter {
   /** FitRequest → EFT text (engine `eft_export`). */
   eftExport(fit: FitRequest, name?: string): Promise<string>;
   meta(): Promise<EngineMeta>;
+  /** Any other serve-stdio / `POST /v1/rpc` method (e.g. `graph`, `graph_specs` per CONTRACT-GRAPHS 0.2). Contract
+   *  errors (`{error:{code,message,path}}`, or an unknown method) are thrown as EngineError. */
+  call<T = unknown>(method: string, params: unknown): Promise<T>;
   close(): Promise<void>;
 }

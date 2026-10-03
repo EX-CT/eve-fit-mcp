@@ -120,5 +120,9 @@ export class CliAdapter implements EngineAdapter {
     return this.rpc("meta", {});
   }
 
+  call<T = unknown>(method: string, params: unknown): Promise<T> {
+    return this.rpc<T>(method, params);
+  }
+
   async close(): Promise<void> {}
 }

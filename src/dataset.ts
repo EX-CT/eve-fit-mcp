@@ -82,6 +82,8 @@ export interface TypeInfo {
   metaGroup: number | null;
   techLevel: number | null;
   marketGroup: number | null;
+  /** SDE variationParentTypeID (the T1 base item of a meta family), null for the base itself */
+  variationParent: number | null;
   slot: Slot | null;
   hardpoint: "turret" | "launcher" | null;
   mass: number;
@@ -90,6 +92,17 @@ export interface TypeInfo {
   radius: number | null;
   attrs: Record<string, number>;
   effects: [number, boolean][];
+}
+
+export interface MarketGroupInfo {
+  id: number;
+  name: string;
+  nameZh: string | null;
+  parent: number | null;
+  hasTypes: boolean;
+  /** child group ids / published type ids in this dataset (the dataset holds fitting-relevant types only) */
+  children: number[];
+  types: number[];
 }
 
 export interface SearchOptions {
@@ -238,6 +251,9 @@ export class Dataset {
   readonly groups = new Map<number, { name: string; category: number }>();
   readonly categories = new Map<number, string>();
   readonly dbuffs = new Map<number, string>();
+  /** Market-group tree (pipeline `market_groups`, r4+); empty for older datasets. */
+  readonly marketGroups = new Map<number, MarketGroupInfo>();
+  readonly metaGroups = new Map<number, { name: string; nameZh: string | null }>();
   private byName = new Map<string, TypeInfo>();
   private normNames: { t: TypeInfo; en: string; zh: string }[] = [];
   readonly loadMs: number;
@@ -260,6 +276,10 @@ export class Dataset {
       this.effectCategory.set(+id, e.category ?? 0);
     }
     for (const [id, b] of Object.entries<any>(d.dbuffs ?? {})) this.dbuffs.set(+id, b.name);
+    const zhI18n = d.names_i18n?.zh ?? {};
+    for (const [id, g] of Object.entries<any>(d.market_groups ?? {}))
+      this.marketGroups.set(+id, { id: +id, name: g.name, nameZh: zhI18n.market_groups?.[id] ?? null, parent: g.parent ?? null, hasTypes: !!g.has_types, children: [], types: [] });
+    for (const [id, g] of Object.entries<any>(d.meta_groups ?? {})) this.metaGroups.set(+id, { name: g.name, nameZh: zhI18n.meta_groups?.[id] ?? null });
     for (const [id, a] of Object.entries<any>(d.attributes ?? {})) {
       const info: AttrInfo = {
         id: +id,
@@ -306,6 +326,7 @@ export class Dataset {
         metaGroup: t.meta_group ?? null,
         techLevel: t.tech_level ?? null,
         marketGroup: t.market_group ?? null,
+        variationParent: t.variation_parent ?? null,
         slot,
         hardpoint,
         mass: t.mass ?? 0,
@@ -326,6 +347,8 @@ export class Dataset {
       this.normNames.push({ t: info, en: key, zh: info.nameZh ? norm(info.nameZh) : "" });
     }
     this.normNames.sort((a, b) => a.t.id - b.t.id);
+    for (const g of this.marketGroups.values()) if (g.parent !== null) this.marketGroups.get(g.parent)?.children.push(g.id);
+    for (const t of this.types.values()) if (t.published && t.marketGroup !== null) this.marketGroups.get(t.marketGroup)?.types.push(t.id);
     this.loadMs = performance.now() - t0;
   }
 

@@ -30,12 +30,13 @@ Transports: **stdio**, and **Streamable HTTP** (`--http`; stateless, `POST /mcp`
 |---|---|
 | `search_types` | ships/modules/charges/drones/fighters/implants/boosters/subsystems/skills by name, English or Chinese, with jargon (`mwd`, `lse`, `dc`, `scram`, `point`, `web`, `sebo`, `bcs`, `dda` …) and fuzzy matching. Filters: kind, slot, group, meta, tech level, `fits_ship` |
 | `get_type` | show-info: named attributes with units, effects, required skills (incl. prerequisites), compatible charges, other items in the same group, ship layout |
-| `get_ship` | slots, hardpoints, rig size, CPU/PG/calibration, drone bay, plus the empty hull's computed stats with skills |
+| `get_ship` | slots, hardpoints, rig size, CPU/PG/calibration, drone bay, hull traits (role and per-skill bonus lines, en/zh), plus the empty hull's computed stats with skills |
 | `list_presets` | skill presets, pirate implant sets (from the dataset), incoming damage profiles, target profiles, metric keys |
 | `parse_fit` | EFT / DNA / lenient JSON → strict contract FitRequest, every item named, `request_hash` |
 | `export_fit` | EFT (Pyfa-exact, from the engine), DNA, multibuy, JSON |
 | `validate_fit` | violations with module names and fix hints, resource usage, missing skills |
-| `compute_fit` | full stats: compact summary + named metrics, or `detail: "full"` with `sections` |
+| `compute_fit` | full stats: compact summary + named metrics, or `detail: "full"` with `sections`. The summary includes mining yield, outgoing remote repair / cap transfer (with spool range), bombs to kill, overheat burnout, validation (codes, missing skills by name, fix hints), capacitor recharge, agility / mass / warp distance, probe size. With docs/23 price inputs (`price_overrides`, `prices`, `price: true`) the engine's `price` block comes back unchanged |
+| `compute_batch` | many fits in one engine call (docs/23 BatchRequest → BatchResponse, passed through): `fits`, `base` + `variants` (JSON Patch, `swap_type`), `product` / `sweep` (capped by `max_combinations`); `fields`, `deltas`, `filter`, `sort_by`, `top_n`; batch-wide and per-variant `price_overrides`. Fit sources may use names, EFT or DNA. Needs an engine with the `batch` RPC (else `UNKNOWN_METHOD`) |
 | `compare_fits` | 2–20 fits in one batch → metric × fit table with deltas and the best fit per metric |
 | `what_if` | add/remove/replace modules, state, ammo, skills, drones, implants, boosters, profiles, options → deltas per scenario |
 | `suggest_modules` | ranks every compatible module for a slot (fill it, or replace module *i*) by a goal (`dps`, `ehp`, `tank`, `speed`, `align`, `cap_stability`, `lock_range` … or a weighted mix) by computing each candidate. Drops candidates that add violations; `min`/`max` limits on any metric |
@@ -50,7 +51,7 @@ Transports: **stdio**, and **Streamable HTTP** (`--http`; stateless, `POST /mcp`
 | `list_graphs` | the engine's graphs (Pyfa graph set: DPS/volley vs range, applied DPS vs target speed/signature, cap, speed/distance vs time, warp, EHP/RPS, lock time …) with their axes, defaults and whether they need a target |
 | `compute_graph` | one graph for a fit: `x` (`values` or `from`/`to`/`points`), the y series, a `target` (profile preset or object, or a target fit given as `fit`/`eft`/`dna`), graph params. Returns the series and a min/max/at-x summary (`table` for the raw points) |
 | `get_prices` | prices for types by id or name, from ESI (universe average) or Fuzzwork (trade-hub sell/buy), with source and age |
-| `price_fit` | Pyfa-style price panel: ship, fittings, charges (one full load per module), drones, fighters, cargo, implants, boosters, total; unpriced items listed |
+| `price_fit` | Pyfa-style price panel. With a docs/23 engine the engine prices the fit: the MCP injects the market table (+ your own `isk`) as `prices.isk` and passes `price_overrides`; the answer is the engine's price block (total, sections, per-item lines with source, missing). Older engines: legacy MCP sum (`priced_by: "mcp-legacy"`) |
 
 Fit inputs are the same for every fit tool. Give exactly one of `eft`, `dna` or `fit` (contract
 FitRequest; **names are accepted wherever ids are**, e.g. `"modules": ["200mm AutoCannon II, EMP S"]`).
@@ -200,6 +201,15 @@ by default and has no authentication. Put a reverse proxy with auth in front bef
 
 ## Prices
 
+Prices are computed by the **engine** (EX-CT/eve-fit-docs docs/22 / docs/23): `price_overrides` by type / market group
+(with children) / group / category, fixed (0 = self-built) or multiplier; precedence variant overrides > request overrides >
+injected prices (`prices.isk`) > the engine's market snapshot (Jita 4-4 sell band rule, made by
+[EX-CT/eve-market-prices](https://github.com/EX-CT/eve-market-prices)). The MCP only resolves names to ids and passes the
+fields through (`compute_fit`, `compute_batch`, `price_fit`); it does no pricing math once the engine returns a `price` block.
+
+Errors from the engine keep their contract code verbatim (`Error: UNKNOWN_TYPE: …`, `BAD_PRICE_OVERRIDE`, `BATCH_TOO_LARGE`, …);
+input errors found by the MCP itself are `BAD_REQUEST`.
+
 `get_prices` and `price_fit` are the only tools that use the network, and only when they are called.
 
 | source | endpoint | price |
@@ -251,7 +261,21 @@ against it (only the variant C suites skip there). They cover:
 * the cli adapter, the worker pool, the http adapter (against `eve-dogma-go serve-http`), and variant C as the
   engine (identical numbers and identical EFT export);
 * a bad engine binary;
-* Streamable HTTP.
+* Streamable HTTP;
+* engine values through `compute_fit` (`src/test/stats.test.ts`, Pyfa-backed numbers) and validation
+  (`src/test/validation.test.ts`, bench `val_*` cases).
+
+Every test title starts with a stable id (`mcp.<file>.<slug>`); [`docs/test-ids.md`](docs/test-ids.md) lists them with
+the docs/19 inventory items each covers (`python3 tools/test-ids.py` regenerates it).
+
+**mcp-bench.** `tools/mcp-dogma-bench.py` replays eve-dogma-bench cases through the MCP (stdio, `compute_fit
+detail:"full"`) and scores them with the bench tolerances: core (339), ext (Pyfa stats-ext suite), effects (2378 per-effect
+micro-fits; must equal the engine run directly) and cap (150). CI's `engine` job runs all four at the bench commits in
+`engines.lock` and fails below the engine's own score.
+
+```bash
+python3 tools/mcp-dogma-bench.py run --bench ../eve-dogma-bench --cap-bench ../eve-dogma-bench-cap --suite core,ext,effects,cap --out mcp-bench.json
+```
 
 ## Design notes
 * **Stateless.** Every call carries the whole fit. Notes say what was assumed (e.g. skills).

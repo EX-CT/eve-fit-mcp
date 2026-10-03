@@ -21,7 +21,7 @@ import { applyPriceInputs } from "./pricing-input.js";
 import { batchTable, prepareBatch } from "./batch.js";
 import { markdownTable, pickSections, SECTIONS, summarize } from "./summary.js";
 
-export const VERSION = "0.3.1";
+export const VERSION = "0.4.0";
 const here = dirname(fileURLToPath(import.meta.url));
 
 function readAsset(rel: string): string {

@@ -4,35 +4,7 @@
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { call, connect, haveEngine } from "./helpers.js";
-
-/** |got - want| within the bench tolerance (1e-6 relative, 1e-3 absolute near 0), or `tol` relative. */
-export function near(got: unknown, want: number, what: string, tol = 1e-4) {
-  assert.equal(typeof got, "number", `${what}: ${JSON.stringify(got)} is not a number`);
-  const g = got as number;
-  assert.ok(Math.abs(g - want) <= Math.max(1e-3, Math.abs(want) * tol), `${what}: ${g} vs Pyfa ${want}`);
-}
-
-/** bench core case exct_rifter (an illegal fit: 4 highs on 3 slots, CPU/calibration over; Pyfa computes it anyway). */
-export const EXCT_RIFTER = {
-  ship: "Rifter",
-  modules: [
-    { name: "Damage Control II", state: "active" },
-    { name: "Gyrostabilizer II", state: "active" },
-    { name: "200mm Steel Plates II", state: "active" },
-    { name: "1MN Afterburner II", state: "active" },
-    { name: "Warp Scrambler II", state: "active" },
-    { name: "Stasis Webifier II", state: "active" },
-    { name: "200mm AutoCannon II", charge: "Republic Fleet EMP S", state: "active" },
-    { name: "200mm AutoCannon II", charge: "Republic Fleet EMP S", state: "active" },
-    { name: "200mm AutoCannon II", charge: "Republic Fleet EMP S", state: "active" },
-    { name: "Rocket Launcher II", charge: "Nova Rage Rocket", state: "active" },
-    { name: "Small Projectile Burst Aerator II", state: "online" },
-    { name: "Small Projectile Collision Accelerator II", state: "online" },
-    { name: "Small Explosive Armor Reinforcer II", state: "online" },
-  ],
-  drones: [{ name: "Warrior II", quantity: 2, active: 2 }],
-};
+import { call, connect, EXCT_RIFTER, haveEngine, near } from "./helpers.js";
 
 describe("engine stats through compute_fit (Pyfa values)", { skip: !haveEngine && "engine or dataset missing" }, () => {
   let c: Client;

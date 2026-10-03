@@ -1,4 +1,5 @@
 // Test helpers: spawn the real MCP server (dist/main.js) against a real engine and the shared dataset.
+import assert from "node:assert/strict";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { existsSync } from "node:fs";
@@ -62,3 +63,31 @@ Small Projectile Burst Aerator I
 Small Projectile Collision Accelerator I
 
 Warrior II x1`;
+
+/** |got - want| within the bench tolerance (1e-6 relative, 1e-3 absolute near 0), or `tol` relative. */
+export function near(got: unknown, want: number, what: string, tol = 1e-4) {
+  assert.equal(typeof got, "number", `${what}: ${JSON.stringify(got)} is not a number`);
+  const g = got as number;
+  assert.ok(Math.abs(g - want) <= Math.max(1e-3, Math.abs(want) * tol), `${what}: ${g} vs Pyfa ${want}`);
+}
+
+/** bench core case exct_rifter (an illegal fit: 4 highs on 3 slots, CPU/calibration over; Pyfa computes it anyway). */
+export const EXCT_RIFTER = {
+  ship: "Rifter",
+  modules: [
+    { name: "Damage Control II", state: "active" },
+    { name: "Gyrostabilizer II", state: "active" },
+    { name: "200mm Steel Plates II", state: "active" },
+    { name: "1MN Afterburner II", state: "active" },
+    { name: "Warp Scrambler II", state: "active" },
+    { name: "Stasis Webifier II", state: "active" },
+    { name: "200mm AutoCannon II", charge: "Republic Fleet EMP S", state: "active" },
+    { name: "200mm AutoCannon II", charge: "Republic Fleet EMP S", state: "active" },
+    { name: "200mm AutoCannon II", charge: "Republic Fleet EMP S", state: "active" },
+    { name: "Rocket Launcher II", charge: "Nova Rage Rocket", state: "active" },
+    { name: "Small Projectile Burst Aerator II", state: "online" },
+    { name: "Small Projectile Collision Accelerator II", state: "online" },
+    { name: "Small Explosive Armor Reinforcer II", state: "online" },
+  ],
+  drones: [{ name: "Warrior II", quantity: 2, active: 2 }],
+};

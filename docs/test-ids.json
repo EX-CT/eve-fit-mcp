@@ -1,0 +1,282 @@
+{
+ "schema": "mcp-test-ids/1",
+ "format": "mcp.<file>.<slug>: <description>; file = unit|integration|features|adapters",
+ "base": "64d6cd6",
+ "tests": [
+  {
+   "id": "mcp.adapters.command-split",
+   "description": "command templates split like a shell",
+   "file": "src/test/adapters.test.ts"
+  },
+  {
+   "id": "mcp.adapters.cli-adapter",
+   "description": "cli adapter (spawn per call) gives identical numbers",
+   "file": "src/test/adapters.test.ts"
+  },
+  {
+   "id": "mcp.adapters.worker-pool",
+   "description": "worker pool (EVE_FIT_WORKERS=3)",
+   "file": "src/test/adapters.test.ts"
+  },
+  {
+   "id": "mcp.adapters.rpc-cmd-variant-c",
+   "description": "variant C (Go) serve-stdio through EVE_FIT_RPC_CMD",
+   "file": "src/test/adapters.test.ts"
+  },
+  {
+   "id": "mcp.adapters.http-adapter-variant-c",
+   "description": "http adapter against variant C serve-http",
+   "file": "src/test/adapters.test.ts"
+  },
+  {
+   "id": "mcp.adapters.bad-engine-binary",
+   "description": "bad engine binary gives an actionable error, not a hang",
+   "file": "src/test/adapters.test.ts"
+  },
+  {
+   "id": "mcp.adapters.streamable-http",
+   "description": "Streamable HTTP transport",
+   "file": "src/test/adapters.test.ts"
+  },
+  {
+   "id": "mcp.features.market-roots",
+   "description": "roots and path resolution",
+   "file": "src/test/features.test.ts"
+  },
+  {
+   "id": "mcp.features.market-meta-filter",
+   "description": "meta filter, depth, ambiguity",
+   "file": "src/test/features.test.ts"
+  },
+  {
+   "id": "mcp.features.market-variations",
+   "description": "variations (meta family)",
+   "file": "src/test/features.test.ts"
+  },
+  {
+   "id": "mcp.features.prices-esi",
+   "description": "esi: average price, adjusted fallback, one request then cached (memory and disk)",
+   "file": "src/test/features.test.ts"
+  },
+  {
+   "id": "mcp.features.prices-fuzzwork",
+   "description": "fuzzwork: trade hub sell percentile; unknown hub/source errors",
+   "file": "src/test/features.test.ts"
+  },
+  {
+   "id": "mcp.features.prices-offline",
+   "description": "offline / network failure: stale cache, never-priced items null",
+   "file": "src/test/features.test.ts"
+  },
+  {
+   "id": "mcp.features.prices-fit-items",
+   "description": "fitItems: sections and quantities",
+   "file": "src/test/features.test.ts"
+  },
+  {
+   "id": "mcp.features.price-fit",
+   "description": "price_fit: Pyfa price panel sections, charges per full load, toggles",
+   "file": "src/test/features.test.ts"
+  },
+  {
+   "id": "mcp.features.list-graphs",
+   "description": "list_graphs: the 10 Pyfa graphs, CONTRACT-GRAPHS 0.2",
+   "file": "src/test/features.test.ts"
+  },
+  {
+   "id": "mcp.features.compute-graph-stats",
+   "description": "compute_graph: lock time and mobility agree with the fit stats; damage vs a target profile",
+   "file": "src/test/features.test.ts"
+  },
+  {
+   "id": "mcp.features.compute-graph-target",
+   "description": "compute_graph: target fit, default x range, errors",
+   "file": "src/test/features.test.ts"
+  },
+  {
+   "id": "mcp.features.projected-environment",
+   "description": "projected (stasis webifier) and environment (beacon)",
+   "file": "src/test/features.test.ts"
+  },
+  {
+   "id": "mcp.features.fleet-overrides",
+   "description": "fleet buffs and overrides",
+   "file": "src/test/features.test.ts"
+  },
+  {
+   "id": "mcp.features.mutated-fighters",
+   "description": "mutated module and fighters",
+   "file": "src/test/features.test.ts"
+  },
+  {
+   "id": "mcp.features.browse-market",
+   "description": "browse_market / get_type market info through the server",
+   "file": "src/test/features.test.ts"
+  },
+  {
+   "id": "mcp.integration.list-tools",
+   "description": "lists every tool with a JSON schema",
+   "file": "src/test/integration.test.ts"
+  },
+  {
+   "id": "mcp.integration.engine-info",
+   "description": "engine_info reports the same dataset",
+   "file": "src/test/integration.test.ts"
+  },
+  {
+   "id": "mcp.integration.search",
+   "description": "search: exact, jargon, chinese, filters, fuzzy",
+   "file": "src/test/integration.test.ts"
+  },
+  {
+   "id": "mcp.integration.get-type-ship",
+   "description": "get_type and get_ship",
+   "file": "src/test/integration.test.ts"
+  },
+  {
+   "id": "mcp.integration.eft-import-states",
+   "description": "EFT import states (regression: F eft_parse fix, eve-dogma 1dc951b): weapons active, MJD/cloak online, /OFFLINE offline",
+   "file": "src/test/integration.test.ts"
+  },
+  {
+   "id": "mcp.integration.compute-fit-summary",
+   "description": "compute_fit from EFT: summary with metrics",
+   "file": "src/test/integration.test.ts"
+  },
+  {
+   "id": "mcp.integration.input-formats-agree",
+   "description": "EFT, DNA and lenient JSON give the same numbers",
+   "file": "src/test/integration.test.ts"
+  },
+  {
+   "id": "mcp.integration.skills",
+   "description": "skills change the numbers; all_0 is weaker",
+   "file": "src/test/integration.test.ts"
+  },
+  {
+   "id": "mcp.integration.full-detail-sections",
+   "description": "full detail with sections",
+   "file": "src/test/integration.test.ts"
+  },
+  {
+   "id": "mcp.integration.validate-fit",
+   "description": "validate_fit names modules and hints",
+   "file": "src/test/integration.test.ts"
+  },
+  {
+   "id": "mcp.integration.actionable-errors",
+   "description": "actionable errors",
+   "file": "src/test/integration.test.ts"
+  },
+  {
+   "id": "mcp.integration.export-roundtrip",
+   "description": "export EFT round-trips",
+   "file": "src/test/integration.test.ts"
+  },
+  {
+   "id": "mcp.integration.compare-fits",
+   "description": "compare_fits builds a delta table",
+   "file": "src/test/integration.test.ts"
+  },
+  {
+   "id": "mcp.integration.what-if",
+   "description": "what_if scenarios",
+   "file": "src/test/integration.test.ts"
+  },
+  {
+   "id": "mcp.integration.suggest-modules",
+   "description": "suggest_modules ranks by goal and respects constraints",
+   "file": "src/test/integration.test.ts"
+  },
+  {
+   "id": "mcp.integration.optimize-fit",
+   "description": "optimize_fit improves a goal within budget",
+   "file": "src/test/integration.test.ts"
+  },
+  {
+   "id": "mcp.integration.suggest-drones",
+   "description": "suggest_drones respects bandwidth, bay and skills",
+   "file": "src/test/integration.test.ts"
+  },
+  {
+   "id": "mcp.integration.optimize-progress",
+   "description": "optimize_fit sends progress notifications when asked",
+   "file": "src/test/integration.test.ts"
+  },
+  {
+   "id": "mcp.integration.skill-requirements-presets",
+   "description": "skill_requirements and presets",
+   "file": "src/test/integration.test.ts"
+  },
+  {
+   "id": "mcp.integration.profiles-implant-sets",
+   "description": "damage / target profiles and implant sets apply",
+   "file": "src/test/integration.test.ts"
+  },
+  {
+   "id": "mcp.integration.suggest-charges",
+   "description": "suggest_charges ranks ammo per weapon type",
+   "file": "src/test/integration.test.ts"
+  },
+  {
+   "id": "mcp.integration.sweep",
+   "description": "sweep gives graph series",
+   "file": "src/test/integration.test.ts"
+  },
+  {
+   "id": "mcp.integration.resources-prompts",
+   "description": "resources and prompts",
+   "file": "src/test/integration.test.ts"
+  },
+  {
+   "id": "mcp.unit.slots-hardpoints",
+   "description": "slots, hardpoints, kinds",
+   "file": "src/test/unit.test.ts"
+  },
+  {
+   "id": "mcp.unit.can-fit",
+   "description": "canFit: rig size and ship restrictions",
+   "file": "src/test/unit.test.ts"
+  },
+  {
+   "id": "mcp.unit.resolve-suggestions",
+   "description": "resolve gives suggestions",
+   "file": "src/test/unit.test.ts"
+  },
+  {
+   "id": "mcp.unit.skill-tree",
+   "description": "skill tree includes prerequisites",
+   "file": "src/test/unit.test.ts"
+  },
+  {
+   "id": "mcp.unit.implant-sets",
+   "description": "implant sets",
+   "file": "src/test/unit.test.ts"
+  },
+  {
+   "id": "mcp.unit.dna-roundtrip",
+   "description": "DNA round trip with charges loaded",
+   "file": "src/test/unit.test.ts"
+  },
+  {
+   "id": "mcp.unit.lenient-normalise",
+   "description": "lenient fit normalisation and hash",
+   "file": "src/test/unit.test.ts"
+  },
+  {
+   "id": "mcp.unit.metrics-goal-score",
+   "description": "metrics and goal score",
+   "file": "src/test/unit.test.ts"
+  },
+  {
+   "id": "mcp.unit.default-engine",
+   "description": "default engine is F (eve-fit from EX-CT/eve-dogma); EVE_DOGMA_BIN selects another",
+   "file": "src/test/unit.test.ts"
+  },
+  {
+   "id": "mcp.unit.test-ids",
+   "description": "(new) every test title starts with a unique stable id mcp.<file>.<slug>",
+   "file": "src/test/unit.test.ts"
+  }
+ ]
+}

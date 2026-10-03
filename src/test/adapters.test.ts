@@ -10,7 +10,7 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { splitWords } from "../adapters/cmd.js";
 import { call, connect, DATASET, GO_BIN, haveEngine, MAIN, RIFTER_EFT, ENGINE_BIN } from "./helpers.js";
 
-test("command templates split like a shell", () => {
+test("mcp.adapters.command-split: command templates split like a shell", () => {
   assert.deepEqual(splitWords(`a --x "b c" 'd e' f\\ g`), ["a", "--x", "b c", "d e", "f g"]);
   assert.deepEqual(splitWords(`""`), [""]);
 });
@@ -24,7 +24,7 @@ describe("adapters", { skip: !haveEngine && "engine or dataset missing" }, () =>
   });
   after(async () => rpc?.close());
 
-  test("cli adapter (spawn per call) gives identical numbers", async () => {
+  test("mcp.adapters.cli-adapter: cli adapter (spawn per call) gives identical numbers", async () => {
     const c = await connect({ EVE_FIT_ADAPTER: "cli" });
     try {
       const info = await call(c, "engine_info", {});
@@ -38,7 +38,7 @@ describe("adapters", { skip: !haveEngine && "engine or dataset missing" }, () =>
     }
   });
 
-  test("worker pool (EVE_FIT_WORKERS=3)", async () => {
+  test("mcp.adapters.worker-pool: worker pool (EVE_FIT_WORKERS=3)", async () => {
     const c = await connect({ EVE_FIT_WORKERS: "3" });
     try {
       const s = await call(c, "suggest_modules", { eft: RIFTER_EFT, replace_index: 1, goal: "dps", top: 3 });
@@ -49,7 +49,7 @@ describe("adapters", { skip: !haveEngine && "engine or dataset missing" }, () =>
     }
   });
 
-  test("variant C (Go) serve-stdio through EVE_FIT_RPC_CMD", { skip: !existsSync(GO_BIN) && "variant C binary missing" }, async () => {
+  test("mcp.adapters.rpc-cmd-variant-c: variant C (Go) serve-stdio through EVE_FIT_RPC_CMD", { skip: !existsSync(GO_BIN) && "variant C binary missing" }, async () => {
     const c = await connect({ EVE_DOGMA_BIN: GO_BIN, EVE_FIT_RPC_CMD: "{bin} --dataset {dataset} serve-stdio" });
     try {
       const info = await call(c, "engine_info", {});
@@ -64,7 +64,7 @@ describe("adapters", { skip: !haveEngine && "engine or dataset missing" }, () =>
     }
   });
 
-  test("http adapter against variant C serve-http", { skip: !existsSync(GO_BIN) && "variant C binary missing" }, async () => {
+  test("mcp.adapters.http-adapter-variant-c: http adapter against variant C serve-http", { skip: !existsSync(GO_BIN) && "variant C binary missing" }, async () => {
     const port = 19765 + Math.floor(Math.random() * 1000);
     const eng = spawn(GO_BIN, ["--dataset", DATASET, "serve-http", "-addr", `127.0.0.1:${port}`], { stdio: ["ignore", "ignore", "pipe"] });
     try {
@@ -97,7 +97,7 @@ describe("adapters", { skip: !haveEngine && "engine or dataset missing" }, () =>
     }
   });
 
-  test("bad engine binary gives an actionable error, not a hang", async () => {
+  test("mcp.adapters.bad-engine-binary: bad engine binary gives an actionable error, not a hang", async () => {
     const c = await connect({ EVE_DOGMA_BIN: "/nonexistent/eve-dogma" });
     try {
       const r: any = await c.callTool({ name: "compute_fit", arguments: { eft: RIFTER_EFT } });
@@ -108,7 +108,7 @@ describe("adapters", { skip: !haveEngine && "engine or dataset missing" }, () =>
     }
   });
 
-  test("Streamable HTTP transport", async () => {
+  test("mcp.adapters.streamable-http: Streamable HTTP transport", async () => {
     const port = 18765 + Math.floor(Math.random() * 1000);
     const p = spawn(process.execPath, [MAIN, "--http", "--port", String(port)], {
       env: { ...process.env, EVE_DOGMA_BIN: ENGINE_BIN, EVE_DOGMA_DATASET: DATASET },

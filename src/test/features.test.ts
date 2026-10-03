@@ -18,7 +18,7 @@ const hasMarket = !!ds && ds.marketGroups.size > 0;
 
 // ------------------------------------------------------------------------------------------- market (index only)
 describe("market tree (MKT-001, variations)", { skip: !hasMarket && "dataset without market_groups (needs eve-sde-pipeline r4+)" }, () => {
-  test("roots and path resolution", () => {
+  test("mcp.features.market-roots: roots and path resolution", () => {
     const root = browseMarket(ds!, {});
     const names = root.children.map((c) => c.name);
     for (const n of ["Ships", "Ship Equipment", "Drones", "Ammunition & Charges", "Implants & Boosters"]) assert.ok(names.includes(n), `root ${n} missing: ${names}`);
@@ -30,7 +30,7 @@ describe("market tree (MKT-001, variations)", { skip: !hasMarket && "dataset wit
     assert.ok(r.types.some((t) => t.name === "200mm AutoCannon II" && t.meta_group === "Tech II"));
     assert.ok(r.group!.name_zh, "zh market group name");
   });
-  test("meta filter, depth, ambiguity", () => {
+  test("mcp.features.market-meta-filter: meta filter, depth, ambiguity", () => {
     const g = resolveGroup(ds!, "Projectile Turrets/Autocannons/Small");
     const t2 = browseMarket(ds!, { group: g.id, meta_groups: ["T2"] });
     assert.ok(t2.types.length > 0 && t2.types.every((t) => t.meta_group === "Tech II"), JSON.stringify(t2.types));
@@ -39,7 +39,7 @@ describe("market tree (MKT-001, variations)", { skip: !hasMarket && "dataset wit
     assert.throws(() => resolveGroup(ds!, "Small"), /ambiguous/);
     assert.throws(() => browseMarket(ds!, { group: g.id, meta_groups: ["Nope"] }), /unknown meta group/);
   });
-  test("variations (meta family)", () => {
+  test("mcp.features.market-variations: variations (meta family)", () => {
     const v = variations(ds!, ds!.resolve("200mm AutoCannon II")).map((x) => x.name);
     assert.ok(v.includes("200mm AutoCannon I") && v.includes("200mm AutoCannon II"), v.join(", "));
     assert.ok(v.some((n) => /Republic Fleet|Domination/.test(n)), v.join(", "));
@@ -93,7 +93,7 @@ describe("prices (PRC-001..003): sources, cache, offline", () => {
   const env = (extra: Record<string, string> = {}) =>
     priceConfig({ EVE_FIT_ESI_URL: `${m.url}/esi`, EVE_FIT_FUZZWORK_URL: `${m.url}/fw`, EVE_FIT_PRICE_CACHE: dir, ...extra } as any);
 
-  test("esi: average price, adjusted fallback, one request then cached (memory and disk)", async () => {
+  test("mcp.features.prices-esi: esi: average price, adjusted fallback, one request then cached (memory and disk)", async () => {
     const p = new PriceService(env());
     const r = await p.lookup([587, 2488, 99999999]);
     assert.equal(r.source, "esi");
@@ -112,7 +112,7 @@ describe("prices (PRC-001..003): sources, cache, offline", () => {
     m.down = false;
   });
 
-  test("fuzzwork: trade hub sell percentile; unknown hub/source errors", async () => {
+  test("mcp.features.prices-fuzzwork: fuzzwork: trade hub sell percentile; unknown hub/source errors", async () => {
     const p = new PriceService(env());
     const r = await p.lookup([587, 2889], { source: "fuzzwork", system: "amarr" });
     assert.equal(r.prices.get(587)!.price, 600000);
@@ -123,7 +123,7 @@ describe("prices (PRC-001..003): sources, cache, offline", () => {
     await assert.rejects(p.lookup([587], { source: "evemarketer" }), /unknown price source/);
   });
 
-  test("offline / network failure: stale cache, never-priced items null", async () => {
+  test("mcp.features.prices-offline: offline / network failure: stale cache, never-priced items null", async () => {
     const off = await new PriceService(env({ EVE_FIT_OFFLINE: "1", EVE_FIT_PRICE_TTL_S: "0" })).lookup([587, 2889], { source: "fuzzwork", system: "amarr" });
     assert.equal(off.stale, true);
     assert.equal(off.prices.get(587)!.price, 600000);
@@ -139,7 +139,7 @@ describe("prices (PRC-001..003): sources, cache, offline", () => {
     assert.equal(empty.prices.get(587)!.price, null);
   });
 
-  test("fitItems: sections and quantities", () => {
+  test("mcp.features.prices-fit-items: fitItems: sections and quantities", () => {
     const items = fitItems(
       { ship: { type_id: 587 }, modules: [{ type_id: 2889, charge_type_id: 21898 }, { type_id: 2889, charge_type_id: 21898 }], drones: [{ type_id: 2488, quantity: 2 }], cargo: [{ type_id: 21898, quantity: 100 }], implants: [10228], boosters: [{ type_id: 15466 }] },
       () => 100,
@@ -154,7 +154,7 @@ describe("prices (PRC-001..003): sources, cache, offline", () => {
       c = await connect({ EVE_FIT_ESI_URL: `${m.url}/esi`, EVE_FIT_FUZZWORK_URL: `${m.url}/fw`, EVE_FIT_PRICE_CACHE: dir });
     });
     after(async () => c?.close());
-    test("price_fit: Pyfa price panel sections, charges per full load, toggles", async () => {
+    test("mcp.features.price-fit: price_fit: Pyfa price panel sections, charges per full load, toggles", async () => {
       const r = await call(c, "price_fit", { eft: RIFTER_EFT });
       assert.equal(r.source, "esi");
       assert.equal(r.sections.ship, 500000);
@@ -188,7 +188,7 @@ describe("graphs and passthrough features (engine)", { skip: !haveEngine && "eng
   });
   after(async () => c?.close());
 
-  test("list_graphs: the 10 Pyfa graphs, CONTRACT-GRAPHS 0.2", async (t) => {
+  test("mcp.features.list-graphs: list_graphs: the 10 Pyfa graphs, CONTRACT-GRAPHS 0.2", async (t) => {
     if (!graphs) return t.skip("engine has no graph RPC");
     const r = await call(c, "list_graphs", {});
     assert.match(r.contract, /0\.2/);
@@ -199,7 +199,7 @@ describe("graphs and passthrough features (engine)", { skip: !haveEngine && "eng
     assert.ok(dmg.axes.some((a: any) => a.axis === "distance_m" && a.unit === "m"));
   });
 
-  test("compute_graph: lock time and mobility agree with the fit stats; damage vs a target profile", async (t) => {
+  test("mcp.features.compute-graph-stats: compute_graph: lock time and mobility agree with the fit stats; damage vs a target profile", async (t) => {
     if (!graphs) return t.skip("engine has no graph RPC");
     const full = await call(c, "compute_fit", { eft: RIFTER_EFT, detail: "full", sections: ["targeting", "navigation"] });
     const lock = await call(c, "compute_graph", { eft: RIFTER_EFT, graph: "lock_time", x: { values: [40, 125, 400] } });
@@ -218,7 +218,7 @@ describe("graphs and passthrough features (engine)", { skip: !haveEngine && "eng
     assert.ok(ideal.series.dps[0] >= d[1], "small fast target takes less than the ideal target");
   });
 
-  test("compute_graph: target fit, default x range, errors", async (t) => {
+  test("mcp.features.compute-graph-target: compute_graph: target fit, default x range, errors", async (t) => {
     if (!graphs) return t.skip("engine has no graph RPC");
     const r = await call(c, "compute_graph", { eft: RIFTER_EFT, graph: "damage", x_axis: "distance_m", y: ["dps"], target: { eft: "[Punisher, t]\n200mm Steel Plates II", resist_mode: "armor" } });
     assert.equal(r.x.length, 21);
@@ -235,7 +235,7 @@ describe("graphs and passthrough features (engine)", { skip: !haveEngine && "eng
   const stats = async (fit: Record<string, unknown>, sections = ["navigation", "offense", "defense"]) =>
     call(c, "compute_fit", { fit: { ...base, ...fit }, detail: "full", sections, include_request: true });
 
-  test("projected (stasis webifier) and environment (beacon)", async () => {
+  test("mcp.features.projected-environment: projected (stasis webifier) and environment (beacon)", async () => {
     const b = await stats({});
     const web = await stats({ projected: [{ kind: "module", module: { type_id: 527, state: "active" }, amount: 1 }] });
     assert.equal(web.request.projected[0].module.type_id, 527);
@@ -248,7 +248,7 @@ describe("graphs and passthrough features (engine)", { skip: !haveEngine && "eng
     }
   });
 
-  test("fleet buffs and overrides", async () => {
+  test("mcp.features.fleet-overrides: fleet buffs and overrides", async () => {
     const b = await stats({});
     const fleet = await stats({ fleet: { buffs: [{ buff_id: 10, value: 25 }] } });
     assert.deepEqual(fleet.request.fleet.buffs, [{ buff_id: 10, value: 25 }]);
@@ -257,7 +257,7 @@ describe("graphs and passthrough features (engine)", { skip: !haveEngine && "eng
     assert.ok(Math.abs(ov.navigation.max_velocity - b.navigation.max_velocity) > 100, `${ov.navigation.max_velocity} vs ${b.navigation.max_velocity}`);
   });
 
-  test("mutated module and fighters", async () => {
+  test("mcp.features.mutated-fighters: mutated module and fighters", async () => {
     const plain = await call(c, "compute_fit", { fit: { ship: "Rifter", modules: ["Damage Control II"] }, detail: "full", sections: ["defense"], include_request: true });
     const mut = await call(c, "compute_fit", {
       fit: { ship: "Rifter", modules: [{ name: "Damage Control II", mutation: { base_type_id: 2048, attributes: { "974": 0.5 } } }] },
@@ -275,7 +275,7 @@ describe("graphs and passthrough features (engine)", { skip: !haveEngine && "eng
     }
   });
 
-  test("browse_market / get_type market info through the server", { skip: !hasMarket && "dataset without market_groups" }, async () => {
+  test("mcp.features.browse-market: browse_market / get_type market info through the server", { skip: !hasMarket && "dataset without market_groups" }, async () => {
     const r = await call(c, "browse_market", { type: "200mm AutoCannon II" });
     assert.ok(r.market_path.some((p: any) => p.name === "Projectile Turrets"));
     assert.ok(r.variations.length >= 3);

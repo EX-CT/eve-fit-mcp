@@ -1,6 +1,8 @@
 // Engine-free unit tests: dataset index, DNA, metrics, command templates, fit normalisation.
 import assert from "node:assert/strict";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { before, describe, test } from "node:test";
 import type { EngineAdapter } from "../adapters/types.js";
 import { loadConfig } from "../config.js";
@@ -19,7 +21,7 @@ describe("dataset index", { skip: !existsSync(DATASET) && "dataset missing" }, (
     ds = new Dataset(DATASET);
   });
 
-  test("slots, hardpoints, kinds", () => {
+  test("mcp.unit.slots-hardpoints: slots, hardpoints, kinds", () => {
     const ac = ds.byExactName("200mm AutoCannon II")!;
     assert.equal(ac.slot, "high");
     assert.equal(ac.hardpoint, "turret");
@@ -28,33 +30,33 @@ describe("dataset index", { skip: !existsSync(DATASET) && "dataset missing" }, (
     assert.equal(ds.byExactName("Hobgoblin II")!.kind, "drone");
   });
 
-  test("canFit: rig size and ship restrictions", () => {
+  test("mcp.unit.can-fit: canFit: rig size and ship restrictions", () => {
     const rifter = ds.byExactName("Rifter")!;
     assert.equal(ds.canFit(ds.byExactName("Small Trimark Armor Pump I")!, rifter).ok, true);
     assert.equal(ds.canFit(ds.byExactName("Large Trimark Armor Pump I")!, rifter).ok, false);
   });
 
-  test("resolve gives suggestions", () => {
+  test("mcp.unit.resolve-suggestions: resolve gives suggestions", () => {
     assert.throws(() => ds.resolve("Rifterr", ["ship"]), /did you mean 'Rifter'/);
     assert.equal(ds.resolve("587").id, 587);
     assert.equal(ds.resolve("dc", ["module"]).group, "Damage Control");
   });
 
-  test("skill tree includes prerequisites", () => {
+  test("mcp.unit.skill-tree: skill tree includes prerequisites", () => {
     const tree = ds.skillTree(ds.byExactName("200mm AutoCannon II")!);
     const names = [...tree.keys()].map((id) => ds.type(id)!.name);
     assert.ok(names.includes("Small Autocannon Specialization"));
     assert.ok(names.includes("Gunnery"), "prerequisite of the specialization");
   });
 
-  test("implant sets", () => {
+  test("mcp.unit.implant-sets: implant sets", () => {
     const sets = implantSets(ds);
     const crystal = sets.find((s) => s.name === "High-grade Crystal")!;
     assert.equal(crystal.implants.length, 6);
     assert.match(crystal.implants[0].name, /Alpha$/);
   });
 
-  test("DNA round trip with charges loaded", () => {
+  test("mcp.unit.dna-roundtrip: DNA round trip with charges loaded", () => {
     const req: any = parseDna(ds, "587:2889;3:2048;1:21898;3:2488;2::");
     assert.equal(req.ship.type_id, 587);
     assert.equal(req.modules.length, 4);
@@ -65,7 +67,7 @@ describe("dataset index", { skip: !existsSync(DATASET) && "dataset missing" }, (
     assert.deepEqual(again.modules.map((m: any) => m.type_id).sort(), req.modules.map((m: any) => m.type_id).sort());
   });
 
-  test("lenient fit normalisation and hash", async () => {
+  test("mcp.unit.lenient-normalise: lenient fit normalisation and hash", async () => {
     const ctx = { ds, engine: noEngine, defaultSkillLevel: 5, maxBatch: 10 };
     const a = await normalizeFit(ctx, { fit: { ship: "Rifter", modules: ["200mm AutoCannon II, EMP S", "Damage Control II /offline"], drones: ["Warrior II x2"], implants: ["High-grade Snake Alpha"] }, skills: { default_level: 4, levels: { Gunnery: 5 } } });
     const r: any = a.request;
@@ -80,7 +82,7 @@ describe("dataset index", { skip: !existsSync(DATASET) && "dataset missing" }, (
   });
 });
 
-test("metrics and goal score", () => {
+test("mcp.unit.metrics-goal-score: metrics and goal score", () => {
   const s: any = { offense: { total: { dps: { total: 110 } } }, navigation: { align_time_s: 4 } };
   const b: any = { offense: { total: { dps: { total: 100 } } }, navigation: { align_time_s: 5 } };
   assert.equal(metric("dps").get(s), 110);
@@ -89,9 +91,25 @@ test("metrics and goal score", () => {
   assert.throws(() => metric("nope"), /unknown metric/);
 });
 
-test("default engine is F (eve-fit from EX-CT/eve-dogma); EVE_DOGMA_BIN selects another", () => {
+test("mcp.unit.default-engine: default engine is F (eve-fit from EX-CT/eve-dogma); EVE_DOGMA_BIN selects another", () => {
   assert.equal(loadConfig({}).bin, "eve-fit");
   assert.equal(loadConfig({ EVE_DOGMA_BIN: "eve-dogma-f" }).bin, "eve-dogma-f");
   assert.equal(loadConfig({ EVE_DOGMA_BIN: "/opt/eve-dogma-rs/eve-dogma" }).bin, "/opt/eve-dogma-rs/eve-dogma");
   assert.equal(loadConfig({}).rpcCmd, "{bin} --dataset {dataset} serve-stdio");
+});
+
+test("mcp.unit.test-ids: every test title starts with a unique stable id mcp.<file>.<slug>", () => {
+  const dir = dirname(fileURLToPath(import.meta.url));
+  const seen = new Set<string>();
+  for (const f of readdirSync(dir).filter((x) => /\.test\.[jt]s$/.test(x))) {
+    const file = f.replace(/\.test\.[jt]s$/, "");
+    for (const m of readFileSync(`${dir}/${f}`, "utf8").matchAll(/\btest\(\s*(["'`])(.*?)\1/g)) {
+      const id = /^(mcp\.([a-z]+)\.[a-z0-9]+(?:-[a-z0-9]+)*): \S/.exec(m[2]);
+      assert.ok(id, `${f}: test title without id: ${m[2]}`);
+      assert.equal(id![2], file, `${f}: id ${id![1]} names the wrong file`);
+      assert.ok(!seen.has(id![1]), `duplicate test id ${id![1]}`);
+      seen.add(id![1]);
+    }
+  }
+  assert.ok(seen.size >= 50, `only ${seen.size} ids found`);
 });

@@ -14,7 +14,7 @@ describe(`eve-fit-mcp (rpc adapter, ${basename(ENGINE_BIN)})`, { skip: !haveEngi
     await c?.close();
   });
 
-  test("lists every tool with a JSON schema", async () => {
+  test("mcp.integration.list-tools: lists every tool with a JSON schema", async () => {
     const { tools } = await c.listTools();
     const names = tools.map((t) => t.name).sort();
     for (const n of ["search_types", "get_type", "get_ship", "list_presets", "parse_fit", "export_fit", "validate_fit", "compute_fit", "compare_fits", "what_if", "suggest_modules", "optimize_fit", "skill_requirements", "evaluate_profiles", "engine_info", "suggest_charges", "sweep", "suggest_drones"])
@@ -25,14 +25,14 @@ describe(`eve-fit-mcp (rpc adapter, ${basename(ENGINE_BIN)})`, { skip: !haveEngi
     }
   });
 
-  test("engine_info reports the same dataset", async () => {
+  test("mcp.integration.engine-info: engine_info reports the same dataset", async () => {
     const r = await call(c, "engine_info", {});
     assert.equal(r.dataset_match, true);
     assert.equal(r.adapter, "rpc");
     assert.match(r.engine.engine, /eve-dogma/);
   });
 
-  test("search: exact, jargon, chinese, filters, fuzzy", async () => {
+  test("mcp.integration.search: search: exact, jargon, chinese, filters, fuzzy", async () => {
     let r = await call(c, "search_types", { query: "Rifter" });
     assert.equal(r.results[0].type_id, 587);
     assert.equal(r.results[0].match, "exact");
@@ -48,7 +48,7 @@ describe(`eve-fit-mcp (rpc adapter, ${basename(ENGINE_BIN)})`, { skip: !haveEngi
     assert.match(r.results[0].name, /Gyrostabilizer/);
   });
 
-  test("get_type and get_ship", async () => {
+  test("mcp.integration.get-type-ship: get_type and get_ship", async () => {
     const t = await call(c, "get_type", { type: "200mm AutoCannon II" });
     assert.equal(t.slot, "high");
     assert.equal(t.hardpoint, "turret");
@@ -61,7 +61,7 @@ describe(`eve-fit-mcp (rpc adapter, ${basename(ENGINE_BIN)})`, { skip: !haveEngi
   });
 
   // Pyfa EFT import states are F behaviour (eve-dogma-rs, frozen, imports every activatable as active): only for the default engine.
-  test("EFT import states (regression: F eft_parse fix, eve-dogma 1dc951b): weapons active, MJD/cloak online, /OFFLINE offline", { skip: basename(ENGINE_BIN) !== "eve-fit" && "Pyfa EFT states are checked on engine F (eve-fit) only" }, async () => {
+  test("mcp.integration.eft-import-states: EFT import states (regression: F eft_parse fix, eve-dogma 1dc951b): weapons active, MJD/cloak online, /OFFLINE offline", { skip: basename(ENGINE_BIN) !== "eve-fit" && "Pyfa EFT states are checked on engine F (eve-fit) only" }, async () => {
     // RIFTER_EFT (3x 200mm AC II, Gyro II, 2 rigs, Warrior II): weapon 196.66 + drone 16.09 = 212.75 DPS, identical on F
     // (eve-dogma 1dc951b) and eve-dogma-rs. Before the fix F parsed the turrets "online": weapon DPS 0, total 16.09.
     const r = await call(c, "compute_fit", { eft: RIFTER_EFT, detail: "full", sections: ["offense"] });
@@ -82,7 +82,7 @@ describe(`eve-fit-mcp (rpc adapter, ${basename(ENGINE_BIN)})`, { skip: !haveEngi
     assert.equal(p.request.drones[0].active, 2);
   });
 
-  test("compute_fit from EFT: summary with metrics", async () => {
+  test("mcp.integration.compute-fit-summary: compute_fit from EFT: summary with metrics", async () => {
     const r = await call(c, "compute_fit", { eft: RIFTER_EFT });
     assert.equal(r.ship.name, "Rifter");
     assert.ok(r.offense.dps > 150 && r.offense.dps < 300, `dps ${r.offense.dps}`);
@@ -92,7 +92,7 @@ describe(`eve-fit-mcp (rpc adapter, ${basename(ENGINE_BIN)})`, { skip: !haveEngi
     assert.ok(r.notes.some((n: string) => /level 5/.test(n)));
   });
 
-  test("EFT, DNA and lenient JSON give the same numbers", async () => {
+  test("mcp.integration.input-formats-agree: EFT, DNA and lenient JSON give the same numbers", async () => {
     const a = await call(c, "compute_fit", { eft: RIFTER_EFT });
     const dna = (await call(c, "export_fit", { eft: RIFTER_EFT, format: "dna" })).text;
     assert.match(dna, /^587:/);
@@ -122,7 +122,7 @@ describe(`eve-fit-mcp (rpc adapter, ${basename(ENGINE_BIN)})`, { skip: !haveEngi
     assert.equal(j.metrics.ehp, a.metrics.ehp);
   });
 
-  test("skills change the numbers; all_0 is weaker", async () => {
+  test("mcp.integration.skills: skills change the numbers; all_0 is weaker", async () => {
     const v = await call(c, "compute_fit", { eft: RIFTER_EFT });
     const z = await call(c, "compute_fit", { eft: RIFTER_EFT, skills: "all_0" });
     assert.ok(z.metrics.dps < v.metrics.dps);
@@ -130,13 +130,13 @@ describe(`eve-fit-mcp (rpc adapter, ${basename(ENGINE_BIN)})`, { skip: !haveEngi
     assert.ok(g4.metrics.dps < v.metrics.dps);
   });
 
-  test("full detail with sections", async () => {
+  test("mcp.integration.full-detail-sections: full detail with sections", async () => {
     const r = await call(c, "compute_fit", { eft: RIFTER_EFT, detail: "full", sections: ["capacitor", "navigation"] });
     assert.deepEqual(Object.keys(r).filter((k) => !["request_hash", "notes", "engine"].includes(k)).sort(), ["capacitor", "navigation"]);
     assert.equal(typeof r.capacitor.stable, "boolean");
   });
 
-  test("validate_fit names modules and hints", async () => {
+  test("mcp.integration.validate-fit: validate_fit names modules and hints", async () => {
     const r = await call(c, "validate_fit", { fit: { ship: "Rifter", modules: ["Large Shield Extender II", "200mm AutoCannon II", "200mm AutoCannon II", "200mm AutoCannon II", "200mm AutoCannon II"] } });
     assert.equal(r.valid, false);
     const codes = r.violations.map((v: any) => v.code);
@@ -144,7 +144,7 @@ describe(`eve-fit-mcp (rpc adapter, ${basename(ENGINE_BIN)})`, { skip: !haveEngi
     assert.ok(r.violations.every((v: any) => typeof v.hint === "string"));
   });
 
-  test("actionable errors", async () => {
+  test("mcp.integration.actionable-errors: actionable errors", async () => {
     let e = await callErr(c, "compute_fit", { fit: { ship: "Rifterr", modules: [] } });
     assert.match(e, /did you mean 'Rifter'/);
     e = await callErr(c, "compute_fit", { eft: RIFTER_EFT, dna: "587::" });
@@ -153,7 +153,7 @@ describe(`eve-fit-mcp (rpc adapter, ${basename(ENGINE_BIN)})`, { skip: !haveEngi
     assert.match(e, /unknown type id 1/);
   });
 
-  test("export EFT round-trips", async () => {
+  test("mcp.integration.export-roundtrip: export EFT round-trips", async () => {
     const eft = (await call(c, "export_fit", { eft: RIFTER_EFT, format: "eft", name: "rt" })).text;
     assert.match(eft, /^\[Rifter, rt\]/);
     const a = await call(c, "compute_fit", { eft: RIFTER_EFT });
@@ -163,7 +163,7 @@ describe(`eve-fit-mcp (rpc adapter, ${basename(ENGINE_BIN)})`, { skip: !haveEngi
     assert.match(mb, /200mm AutoCannon II x3/);
   });
 
-  test("compare_fits builds a delta table", async () => {
+  test("mcp.integration.compare-fits: compare_fits builds a delta table", async () => {
     const r = await call(c, "compare_fits", {
       fits: [
         { eft: RIFTER_EFT, label: "EMP" },
@@ -178,7 +178,7 @@ describe(`eve-fit-mcp (rpc adapter, ${basename(ENGINE_BIN)})`, { skip: !haveEngi
     assert.equal(r.rows.find((x: any) => x.metric === "ehp").delta[1], 0);
   });
 
-  test("what_if scenarios", async () => {
+  test("mcp.integration.what-if: what_if scenarios", async () => {
     const r = await call(c, "what_if", {
       eft: RIFTER_EFT,
       changes: [
@@ -197,7 +197,7 @@ describe(`eve-fit-mcp (rpc adapter, ${basename(ENGINE_BIN)})`, { skip: !haveEngi
     assert.match(r.table, /base/);
   });
 
-  test("suggest_modules ranks by goal and respects constraints", async () => {
+  test("mcp.integration.suggest-modules: suggest_modules ranks by goal and respects constraints", async () => {
     const r = await call(c, "suggest_modules", { eft: RIFTER_EFT, replace_index: 1, goal: "dps", top: 5 });
     assert.equal(r.slot, "low");
     assert.ok(r.suggestions.length > 0);
@@ -214,7 +214,7 @@ describe(`eve-fit-mcp (rpc adapter, ${basename(ENGINE_BIN)})`, { skip: !haveEngi
     assert.match(bad, /unknown metric/);
   });
 
-  test("optimize_fit improves a goal within budget", async () => {
+  test("mcp.integration.optimize-fit: optimize_fit improves a goal within budget", async () => {
     const r = await call(c, "optimize_fit", { eft: RIFTER_EFT, goal: "ehp", slots: ["low"], budget: 150, lock: [0] });
     assert.ok(r.evaluated <= 150 + 5);
     const row = r.comparison.find((x: any) => x.metric === "ehp");
@@ -224,7 +224,7 @@ describe(`eve-fit-mcp (rpc adapter, ${basename(ENGINE_BIN)})`, { skip: !haveEngi
     assert.match(r.eft ?? "", /^\[Rifter/);
   });
 
-  test("suggest_drones respects bandwidth, bay and skills", async () => {
+  test("mcp.integration.suggest-drones: suggest_drones respects bandwidth, bay and skills", async () => {
     const r = await call(c, "suggest_drones", { eft: "[Vexor, v]\nDrone Damage Amplifier II\n\n\n\n\nHammerhead II x5", top: 5 });
     assert.equal(r.drone_bandwidth, 75);
     assert.equal(r.max_active, 5);
@@ -239,7 +239,7 @@ describe(`eve-fit-mcp (rpc adapter, ${basename(ENGINE_BIN)})`, { skip: !haveEngi
     assert.match(err, /no drone bay/);
   });
 
-  test("optimize_fit sends progress notifications when asked", async () => {
+  test("mcp.integration.optimize-progress: optimize_fit sends progress notifications when asked", async () => {
     const seen: any[] = [];
     const res: any = await c.callTool({ name: "optimize_fit", arguments: { eft: RIFTER_EFT, goal: "dps", budget: 200 } }, undefined, { onprogress: (p) => seen.push(p) });
     assert.ok(!res.isError);
@@ -252,7 +252,7 @@ describe(`eve-fit-mcp (rpc adapter, ${basename(ENGINE_BIN)})`, { skip: !haveEngi
     }
   });
 
-  test("skill_requirements and presets", async () => {
+  test("mcp.integration.skill-requirements-presets: skill_requirements and presets", async () => {
     const r = await call(c, "skill_requirements", { eft: RIFTER_EFT, skills: 0 });
     assert.ok(r.missing > 5);
     assert.ok(r.skills.some((s: any) => s.skill === "Minmatar Frigate" && s.missing));
@@ -263,7 +263,7 @@ describe(`eve-fit-mcp (rpc adapter, ${basename(ENGINE_BIN)})`, { skip: !haveEngi
     assert.ok(p.damage_profiles.find((d: any) => d.name === "guristas"));
   });
 
-  test("damage / target profiles and implant sets apply", async () => {
+  test("mcp.integration.profiles-implant-sets: damage / target profiles and implant sets apply", async () => {
     const r = await call(c, "evaluate_profiles", { eft: RIFTER_EFT, target_profiles: ["frigate", "battleship"], damage_profiles: ["em", "explosive"] });
     const [frig, bs] = r.applied_dps;
     assert.ok(frig.applied_dps <= bs.applied_dps, "small guns apply at least as well to battleships");
@@ -274,7 +274,7 @@ describe(`eve-fit-mcp (rpc adapter, ${basename(ENGINE_BIN)})`, { skip: !haveEngi
     assert.ok(snake.metrics.speed > base.metrics.speed);
   });
 
-  test("suggest_charges ranks ammo per weapon type", async () => {
+  test("mcp.integration.suggest-charges: suggest_charges ranks ammo per weapon type", async () => {
     const r = await call(c, "suggest_charges", { eft: RIFTER_EFT, goal: "weapon_range", top: 3 });
     assert.deepEqual(r.weapons.map((w: any) => w.weapon).sort(), ["200mm AutoCannon II", "Small Ancillary Armor Repairer"]);
     const w = r.weapons.find((x: any) => x.weapon === "200mm AutoCannon II");
@@ -286,7 +286,7 @@ describe(`eve-fit-mcp (rpc adapter, ${basename(ENGINE_BIN)})`, { skip: !haveEngi
     assert.ok(d.weapons[0].ranked[0].dps >= 200);
   });
 
-  test("sweep gives graph series", async () => {
+  test("mcp.integration.sweep: sweep gives graph series", async () => {
     const r = await call(c, "sweep", { eft: RIFTER_EFT, x: "target_signature", values: [20, 40, 400], target_profile: "frigate" });
     const pts = r.series[0].points;
     assert.equal(pts.length, 3);
@@ -297,7 +297,7 @@ describe(`eve-fit-mcp (rpc adapter, ${basename(ENGINE_BIN)})`, { skip: !haveEngi
     for (let i = 1; i < v.length; i++) assert.ok(v[i] >= v[i - 1]);
   });
 
-  test("resources and prompts", async () => {
+  test("mcp.integration.resources-prompts: resources and prompts", async () => {
     const { resources } = await c.listResources();
     assert.ok(resources.some((r) => r.uri === "eve://schema/fit-request"));
     const meta = await c.readResource({ uri: "eve://dataset/meta" });

@@ -1,0 +1,12 @@
+# Default engine of eve-fit-mcp (CI builds it from here; README install instructions use the same commit).
+# Mainline = Rust engine F in EX-CT/eve-dogma (Cargo workspace; migrated from eve-dogma-lab variant-f-features 4b8f5f9 with
+# byte-identical output). Native build of crate eve-cli, binary `eve-fit`, LGPL-3.0-or-later. Bench 1.9.0: 331/331 cases;
+# includes the graph layer (CONTRACT-GRAPHS 0.2). The SDE dataset is compiled in at build time (EVE_DOGMA_DATASET must
+# point at the same dataset-<build>.json.gz the MCP index uses).
+# Other engines stay selectable with EVE_DOGMA_BIN: the pre-migration `eve-dogma-f` (eve-dogma-lab), A = eve-dogma-rs
+# `eve-dogma` (frozen), C = eve-dogma-go, ...
+# 1dc951b: eft_parse uses Pyfa's default module states (the MCP's interim EFT workaround is gone; regression test in
+# src/test/integration.test.ts).
+VARIANT_F_REPO=EX-CT/eve-dogma
+VARIANT_F_SHA=1dc951bb2ed377055a3262b4a301b790cc509444
+VARIANT_F_PACKAGE=eve-cli

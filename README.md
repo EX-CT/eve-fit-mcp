@@ -112,7 +112,7 @@ straight from the release.
      }
      ```
 
-To pin a version, replace `latest/download/eve-fit-mcp.tgz` with e.g. `download/v0.2.2/eve-fit-mcp-0.2.2.tgz`. To install
+To pin a version, replace `latest/download/eve-fit-mcp.tgz` with e.g. `download/v0.3.0/eve-fit-mcp-0.3.0.tgz`. To install
 globally, run `npm install -g https://github.com/EX-CT/eve-fit-mcp/releases/latest/download/eve-fit-mcp.tgz` and use `"command": "eve-fit-mcp"`. Check the install with
 `npx -y --package=https://github.com/EX-CT/eve-fit-mcp/releases/latest/download/eve-fit-mcp.tgz eve-fit-mcp --help`.
 

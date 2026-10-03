@@ -19,7 +19,7 @@ import { fitItems, HUBS, PriceService, priceConfig, SOURCES } from "./prices.js"
 import { Change, Constraints, fitInputShape, FitInputObject, FitRequestLenient, GoalSpec, z } from "./schemas.js";
 import { markdownTable, pickSections, SECTIONS, summarize } from "./summary.js";
 
-export const VERSION = "0.2.2";
+export const VERSION = "0.3.0";
 const here = dirname(fileURLToPath(import.meta.url));
 
 function readAsset(rel: string): string {

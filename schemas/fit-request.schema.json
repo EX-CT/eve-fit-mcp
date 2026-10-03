@@ -59,7 +59,7 @@
     "overrides": {"type": "array", "items": {"type": "object", "required": ["type_id", "attribute_id", "value"]}},
     "options": {"type": "object", "properties": {
       "factor_reload": {"type": "boolean"}, "default_spool": {"$ref": "#/$defs/spool"},
-      "rah": {"enum": ["adapt", "static"]}, "include_attributes": {"enum": ["none", "ship", "all"]},
+      "rah": {"enum": ["adapt", "disable"]}, "include_attributes": {"enum": ["none", "ship", "all"]},
       "sources": {"type": "boolean"}, "validate": {"type": "boolean"},
       "cap_sim": {"type": "object", "properties": {"reload": {"type": "boolean"}, "stagger": {"type": "boolean"}, "max_time_s": {"type": "number"}}}}}
   }

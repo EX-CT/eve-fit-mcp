@@ -1,10 +1,11 @@
-// Integration tests: the real MCP server over stdio, the real engine (eve-dogma-rs by default), the real dataset.
+// Integration tests: the real MCP server over stdio, the real engine (variant F eve-dogma-f by default; EVE_DOGMA_BIN picks another), the real dataset.
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { call, callErr, connect, haveEngine, RIFTER_EFT } from "./helpers.js";
+import { basename } from "node:path";
+import { call, callErr, connect, ENGINE_BIN, haveEngine, RIFTER_EFT } from "./helpers.js";
 
-describe("eve-fit-mcp (rpc adapter, eve-dogma-rs)", { skip: !haveEngine && "engine or dataset missing" }, () => {
+describe(`eve-fit-mcp (rpc adapter, ${basename(ENGINE_BIN)})`, { skip: !haveEngine && "engine or dataset missing" }, () => {
   let c: Client;
   before(async () => {
     c = await connect();

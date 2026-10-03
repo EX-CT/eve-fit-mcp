@@ -28,7 +28,7 @@ export interface Config {
 }
 
 export const ENV_DOC: Record<string, string> = {
-  EVE_DOGMA_BIN: "engine binary (default: `eve-dogma` on PATH; any variant implementing the contract works)",
+  EVE_DOGMA_BIN: "engine binary (default: `eve-dogma-f` on PATH, variant F = mainline, pinned in engines.lock; any contract engine works, e.g. `eve-dogma` = eve-dogma-rs or `eve-dogma-go`)",
   EVE_DOGMA_DATASET: "dataset-<build>.json.gz used by both the engine and the MCP search index (required)",
   EVE_FIT_ADAPTER: "`rpc` (default: long-running `serve-stdio` process), `cli` (spawn `calc`/`batch` per call) or `http` (remote engine server)",
   EVE_FIT_ENGINE_URL: "base URL of an HTTP engine for EVE_FIT_ADAPTER=http (POST /v1/calc, /v1/batch, /v1/rpc; GET /v1/meta)",
@@ -55,7 +55,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   return {
     adapter,
     engineUrl: env.EVE_FIT_ENGINE_URL || "",
-    bin: env.EVE_DOGMA_BIN || "eve-dogma",
+    bin: env.EVE_DOGMA_BIN || "eve-dogma-f",
     dataset: env.EVE_DOGMA_DATASET || "",
     rpcCmd: env.EVE_FIT_RPC_CMD || "{bin} --dataset {dataset} serve-stdio",
     calcCmd: env.EVE_FIT_CALC_CMD || "{bin} --dataset {dataset} calc",

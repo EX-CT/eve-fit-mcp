@@ -43,7 +43,7 @@ jobs:
           {
             echo "eve-fit-mcp $VERSION — MCP server for EVE Online fitting (engine-agnostic, eve-dogma contract)."
             echo
-            echo "Install (Node >= 20, an engine such as \`eve-dogma\` on PATH, and a dataset from EX-CT/eve-sde-pipeline):"
+            echo "Install (Node >= 20, the default engine \`eve-dogma-f\` (variant F, see engines.lock / README) on PATH, and a dataset from EX-CT/eve-sde-pipeline):"
             echo
             echo '```bash'
             echo "npx -y --package=$URL eve-fit-mcp --help"

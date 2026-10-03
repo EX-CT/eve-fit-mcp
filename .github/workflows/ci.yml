@@ -21,3 +21,40 @@ jobs:
       - run: npm test
       - name: tool schemas are up to date
         run: node dist/tools/dump-schemas.js && git diff --exit-code schemas
+  engine:
+    # Integration suites against the default engine: variant F (eve-dogma-f) built natively from the commit pinned in
+    # engines.lock, on the latest EX-CT/eve-sde-pipeline dataset (compiled into F and indexed by the MCP).
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22", cache: npm }
+      - name: Pinned engine (engines.lock)
+        run: grep -E '^[A-Z0-9_]+=[^[:space:]#]+$' engines.lock | tee -a "$GITHUB_ENV"
+      - name: Dataset from the SDE pipeline release
+        run: |
+          TAG=$(gh release view -R EX-CT/eve-sde-pipeline --json tagName --jq .tagName)
+          gh release download "$TAG" -R EX-CT/eve-sde-pipeline -D "$RUNNER_TEMP/data" -p 'dataset-*.json.gz'
+          echo "EVE_DOGMA_DATASET=$(ls "$RUNNER_TEMP"/data/dataset-*.json.gz)" >> "$GITHUB_ENV"
+          echo "dataset: $TAG" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: cargo-f-${{ env.VARIANT_F_SHA }}
+      - name: Build variant F (native, as in the README install)
+        run: |
+          cargo install --locked --root "$RUNNER_TEMP/f" --git "https://github.com/$VARIANT_F_REPO" --rev "$VARIANT_F_SHA" eve-dogma-f
+          echo "EVE_DOGMA_BIN=$RUNNER_TEMP/f/bin/eve-dogma-f" >> "$GITHUB_ENV"
+          echo "engine: $VARIANT_F_REPO@$VARIANT_F_SHA (eve-dogma-f)" >> "$GITHUB_STEP_SUMMARY"
+      - run: npm ci
+      - name: npm test (unit + integration on eve-dogma-f; the engine suites must run, only variant C ones may skip)
+        run: |
+          npm test 2>&1 | tee test.log
+          grep -q '^# fail 0' test.log
+          if grep -qE 'SKIP (engine|dataset)|engine or dataset missing|dataset missing' test.log; then echo "engine/dataset suites skipped"; exit 1; fi
+          grep -E '^# (tests|pass|fail|skipped)' test.log >> "$GITHUB_STEP_SUMMARY"

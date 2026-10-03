@@ -8,7 +8,7 @@ import { after, before, describe, test } from "node:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { splitWords } from "../adapters/cmd.js";
-import { call, connect, DATASET, GO_BIN, haveEngine, MAIN, RIFTER_EFT, RS_BIN } from "./helpers.js";
+import { call, connect, DATASET, GO_BIN, haveEngine, MAIN, RIFTER_EFT, ENGINE_BIN } from "./helpers.js";
 
 test("command templates split like a shell", () => {
   assert.deepEqual(splitWords(`a --x "b c" 'd e' f\\ g`), ["a", "--x", "b c", "d e", "f g"]);
@@ -111,7 +111,7 @@ describe("adapters", { skip: !haveEngine && "engine or dataset missing" }, () =>
   test("Streamable HTTP transport", async () => {
     const port = 18765 + Math.floor(Math.random() * 1000);
     const p = spawn(process.execPath, [MAIN, "--http", "--port", String(port)], {
-      env: { ...process.env, EVE_DOGMA_BIN: RS_BIN, EVE_DOGMA_DATASET: DATASET },
+      env: { ...process.env, EVE_DOGMA_BIN: ENGINE_BIN, EVE_DOGMA_DATASET: DATASET },
       stdio: ["ignore", "ignore", "pipe"],
     });
     try {

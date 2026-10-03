@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { before, describe, test } from "node:test";
 import type { EngineAdapter } from "../adapters/types.js";
+import { loadConfig } from "../config.js";
 import { Dataset } from "../dataset.js";
 import { exportDna, parseDna } from "../dna.js";
 import { normalizeFit, requestHash } from "../fit.js";
@@ -86,4 +87,10 @@ test("metrics and goal score", () => {
   assert.ok(Math.abs(goalScore([{ metric: "dps" }], s, b) - 0.1) < 1e-12);
   assert.ok(goalScore([{ metric: "align" }], s, b) > 0, "lower align is better");
   assert.throws(() => metric("nope"), /unknown metric/);
+});
+
+test("default engine is variant F (eve-dogma-f); EVE_DOGMA_BIN selects another", () => {
+  assert.equal(loadConfig({}).bin, "eve-dogma-f");
+  assert.equal(loadConfig({ EVE_DOGMA_BIN: "/opt/eve-dogma-rs/eve-dogma" }).bin, "/opt/eve-dogma-rs/eve-dogma");
+  assert.equal(loadConfig({}).rpcCmd, "{bin} --dataset {dataset} serve-stdio");
 });

@@ -42,6 +42,12 @@ through `compute_fit detail:"full"`, case ids `mcp-bench.<suite>.<case>`, must m
 | `mcp.features.security-status-passthrough` | character.security_status reaches the engine request | CHR-007 (partial) |
 | `mcp.features.security-status-value` | a security-status-dependent value changes (CONCORD armor repair bonus) | CHR-007 (todo: engine lacks effect 6871) |
 | `mcp.features.browse-market` | browse_market / get_type market info through the server |  |
+| `mcp.features.batch-too-large-details` | BATCH_TOO_LARGE carries the engine's count and limit (text and structured error) | ENG-BATCH-001 |
+| `mcp.features.compute-fit-full-verbatim` | compute_fit detail=full is the engine output unchanged (= the batch result stats); MCP fields in _meta | ENG-BATCH-001 |
+| `mcp.features.batch-error-in-place` | a fit the MCP cannot normalise errors at its own index; the others are computed | ENG-BATCH-001 |
+| `mcp.features.builtin-profiles` | compute_fit accepts the engine's built-in damage / target profiles like compute_batch | ENG-BATCH-001 |
+| `mcp.features.load-prices` | load_prices injects a price file into the engine (file layer: request > file > embedded snapshot) | ENG-PRICE-001 |
+| `mcp.features.prices-env-latest` | EVE_FIT_PRICES=latest loads the newest eve-market-prices release (mock GitHub), cached for offline use | ENG-PRICE-001 |
 | `mcp.features.second-dataset` | switching EVE_DOGMA_DATASET updates engine_info, the index and its numbers, and flags an engine still on the old data | SVC-004 |
 | `mcp.features.second-dataset-runtime-engine` | an engine that loads the dataset at run time (variant C) computes on the new data | SVC-004 |
 | `mcp.integration.list-tools` | lists every tool with a JSON schema |  |
@@ -95,6 +101,9 @@ through `compute_fit detail:"full"`, case ids `mcp-bench.<suite>.<case>`, must m
 | `mcp.unit.metrics-goal-score` | metrics and goal score |  |
 | `mcp.unit.default-engine` | default engine is F (eve-fit from EX-CT/eve-dogma); EVE_DOGMA_BIN selects another |  |
 | `mcp.unit.test-ids` | (new) every test title starts with a unique stable id mcp.<file>.<slug> |  |
+| `mcp.unit.prices-flag` | --prices FILE goes right after the binary (global flag), replaces an earlier one, null removes it | ENG-PRICE-001 |
+| `mcp.unit.engine-error-details` | engine error objects keep their extra fields (count, limit, reason) as details | ENG-BATCH-001 |
+| `mcp.unit.price-file-resolve` | path / URL / latest (release asset, cache, offline) | ENG-PRICE-001 |
 | `mcp.validation.charge-validity` | validate_fit flags charge group, size and capacity per module (bench ext val_charge_group, val_charge_size, val_charge_capacity) | ENG-VAL-006 |
 | `mcp.validation.resource-overflow` | CPU / powergrid / calibration / drone bandwidth overflow is flagged (bench ext val_cpu_power_overload, val_slots_mid_low_rig, val_drone_bandwidth) | ENG-VAL-001 |
 | `mcp.validation.ship-restriction` | modules the hull cannot fit (command burst on a frigate, capital module on a cruiser) (bench ext val_ship_restriction_burst, val_capital_module_subcap) | ENG-VAL-003 |

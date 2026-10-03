@@ -35,8 +35,8 @@ Transports: **stdio**, and **Streamable HTTP** (`--http`; stateless, `POST /mcp`
 | `parse_fit` | EFT / DNA / lenient JSON → strict contract FitRequest, every item named, `request_hash` |
 | `export_fit` | EFT (Pyfa-exact, from the engine), DNA, multibuy, JSON |
 | `validate_fit` | violations with module names and fix hints, resource usage, missing skills |
-| `compute_fit` | full stats: compact summary + named metrics, or `detail: "full"` with `sections`. The summary includes mining yield, outgoing remote repair / cap transfer (with spool range), bombs to kill, overheat burnout, validation (codes, missing skills by name, fix hints), capacitor recharge, agility / mass / warp distance, probe size. With docs/23 price inputs (`price_overrides`, `prices`, `price: true`) the engine's `price` block comes back unchanged |
-| `compute_batch` | many fits in one engine call (docs/23 BatchRequest → BatchResponse, passed through): `fits`, `base` + `variants` (JSON Patch, `swap_type`), `product` / `sweep` (capped by `max_combinations`); `fields`, `deltas`, `filter`, `sort_by`, `top_n`; batch-wide and per-variant `price_overrides`. Fit sources may use names, EFT or DNA. Needs an engine with the `batch` RPC (else `UNKNOWN_METHOD`) |
+| `compute_fit` | full stats: compact summary + named metrics, or `detail: "full"` with `sections`. The summary includes mining yield, outgoing remote repair / cap transfer (with spool range), bombs to kill, overheat burnout, validation (codes, missing skills by name, fix hints), capacitor recharge, agility / mass / warp distance, probe size. With docs/23 price inputs (`price_overrides`, `prices`, `price: true`) the engine's `price` block comes back unchanged. `detail: "full"` is the engine's calc output verbatim (identical to a `compute_batch` result's stats); the MCP's `request_hash` / `notes` / `engine` are in the result `_meta["eve-fit-mcp"]`. Fit-level `damage_pattern` / `target_profile` may be the engine's built-ins (`{"builtin": "Uniform"}`) |
+| `compute_batch` | many fits in one engine call (docs/23 BatchRequest → BatchResponse, passed through): `fits`, `base` + `variants` (JSON Patch, `swap_type`), `product` / `sweep` (capped by `max_combinations`); `fields`, `deltas`, `filter`, `sort_by`, `top_n`; batch-wide and per-variant `price_overrides`. Fit sources may use names, EFT or DNA. A fit the MCP cannot normalise goes to the engine unchanged and errors in place (its index), never the whole batch. Needs an engine with the `batch` RPC (else `UNKNOWN_METHOD`) |
 | `compare_fits` | 2–20 fits in one batch → metric × fit table with deltas and the best fit per metric |
 | `what_if` | add/remove/replace modules, state, ammo, skills, drones, implants, boosters, profiles, options → deltas per scenario |
 | `suggest_modules` | ranks every compatible module for a slot (fill it, or replace module *i*) by a goal (`dps`, `ehp`, `tank`, `speed`, `align`, `cap_stability`, `lock_range` … or a weighted mix) by computing each candidate. Drops candidates that add violations; `min`/`max` limits on any metric |
@@ -51,6 +51,7 @@ Transports: **stdio**, and **Streamable HTTP** (`--http`; stateless, `POST /mcp`
 | `list_graphs` | the engine's graphs (Pyfa graph set: DPS/volley vs range, applied DPS vs target speed/signature, cap, speed/distance vs time, warp, EHP/RPS, lock time …) with their axes, defaults and whether they need a target |
 | `compute_graph` | one graph for a fit: `x` (`values` or `from`/`to`/`points`), the y series, a `target` (profile preset or object, or a target fit given as `fit`/`eft`/`dna`), graph params. Returns the series and a min/max/at-x summary (`table` for the raw points) |
 | `get_prices` | prices for types by id or name, from ESI (universe average) or Fuzzwork (trade-hub sell/buy), with source and age |
+| `load_prices` | load / update the engine's injected price file (docs/23 file layer, = `eve-fit --prices FILE`): path, URL, or `latest` (newest EX-CT/eve-market-prices release); `clear: true`; no arguments = status. Later results say `provenance.price_source: "file"` |
 | `price_fit` | Pyfa-style price panel. With a docs/23 engine the engine prices the fit: the MCP injects the market table (+ your own `isk`) as `prices.isk` and passes `price_overrides`; the answer is the engine's price block (total, sections, per-item lines with source, missing). Older engines: legacy MCP sum (`priced_by: "mcp-legacy"`) |
 
 Fit inputs are the same for every fit tool. Give exactly one of `eft`, `dna` or `fit` (contract
@@ -148,6 +149,8 @@ npm ci && npm run build
 | `EVE_FIT_PRICE_SYSTEM` | `jita` | Fuzzwork trade hub: `jita`, `amarr`, `dodixie`, `rens`, `hek` |
 | `EVE_FIT_PRICE_CACHE` | `$XDG_CACHE_HOME/eve-fit-mcp` (else `~/.cache/eve-fit-mcp`) | price cache directory; `off` = memory only |
 | `EVE_FIT_PRICE_TTL_S` | `3600` | price cache lifetime (ESI: its `Expires` header wins) |
+| `EVE_FIT_PRICES` | – | injected price file loaded into the engine at start: path / URL of an eve-price-snapshot v1 or `{type_id: isk}` map, or `latest` (newest EX-CT/eve-market-prices release, cached in `<price cache>/snapshots`; offline: the newest cached one). A bad path / URL stops the server; `latest` without network or cache only warns |
+| `EVE_FIT_PRICES_REPO` | `EX-CT/eve-market-prices` | releases used by `latest` |
 | `EVE_FIT_OFFLINE` | – | `1` = never fetch prices; use the cache whatever its age (answers are marked stale) |
 | `EVE_FIT_USER_AGENT` | names this project | User-Agent for ESI / Fuzzwork; add your contact (ESI etiquette) |
 | `EVE_FIT_ESI_URL` / `EVE_FIT_FUZZWORK_URL` | public endpoints | override the price endpoints (mirrors, tests) |
@@ -214,8 +217,13 @@ Every engine result carries **`provenance`** (docs/22 §2.3: `sde_build`, `sde_h
 returns it in the summary and as a `detail=full` section, `compute_batch` at the top level and per result (and in its
 table header), `price_fit` next to the price block.
 
+**Price data layers** (docs/23 §5): request `price_overrides` > request `prices.isk` > the injected price file
+(`load_prices` / `EVE_FIT_PRICES`, the engine's `--prices FILE` / RPC `prices_load`) > the engine's embedded snapshot.
+`load_prices {source: "latest"}` updates to the newest daily eve-market-prices snapshot without a new engine release.
+
 Errors from the engine keep their contract code verbatim (`Error: UNKNOWN_TYPE: …`, `BAD_PRICE_OVERRIDE`, `BATCH_TOO_LARGE`, …);
-input errors found by the MCP itself are `BAD_REQUEST`.
+input errors found by the MCP itself are `BAD_REQUEST`. The tool result also carries the engine's error object as
+`structuredContent.error` with all its fields (e.g. `BATCH_TOO_LARGE` `count` / `limit`).
 
 `get_prices` and `price_fit` are the only tools that use the network, and only when they are called.
 

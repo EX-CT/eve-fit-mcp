@@ -479,6 +479,150 @@ describe("graphs and passthrough features (engine)", { skip: !haveEngine && "eng
 
 // ------------------------------------------------------------------------------------------- data update (SVC-004)
 
+// ------------------------------------------------------------------------- batch contract fixes (bench mcp-v0.4.1 report)
+// eve3's batch suite through the MCP (results-1.11/mcp-v0.4.1.md): error details, verbatim full output, per-fit errors in
+// place, built-in profiles in compute_fit, and the engine's injected price file (load_prices / EVE_FIT_PRICES).
+describe("batch contract and injected prices (engine)", { skip: !haveEngine && "engine or dataset missing" }, () => {
+  let c: Client;
+  let dir: string;
+  let batchOk = false;
+  before(async () => {
+    c = await connect();
+    dir = mkdtempSync(join(tmpdir(), "efm-prices-"));
+    const r: any = await c.callTool({ name: "compute_batch", arguments: { request: { fits: [{ id: "a", fit: RIFTER_EFT }] } } });
+    batchOk = !r.isError;
+  });
+  after(async () => {
+    await c?.close();
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test("mcp.features.batch-too-large-details: BATCH_TOO_LARGE carries the engine's count and limit (text and structured error)", async (t) => {
+    if (!batchOk) return t.todo("engine without docs/23 batch (eve-dogma before 197223f)");
+    const r: any = await c.callTool({ name: "compute_batch", arguments: { request: { base: RIFTER_EFT, sweep: { path: "/character/skills/default_level", from: 0, to: 2405, step: 1 } } } });
+    assert.equal(r.isError, true);
+    assert.match(r.content[0].text, /^Error: BATCH_TOO_LARGE: .*"count":2406.*"limit":2000/);
+    assert.equal(r.structuredContent.error.code, "BATCH_TOO_LARGE");
+    assert.equal(r.structuredContent.error.count, 2406);
+    assert.equal(r.structuredContent.error.limit, 2000);
+    const low: any = await c.callTool({ name: "compute_batch", arguments: { request: { base: RIFTER_EFT, max_combinations: 3, sweep: { path: "/character/skills/default_level", values: [1, 2, 3, 4] } } } });
+    assert.deepEqual([low.structuredContent.error.count, low.structuredContent.error.limit], [4, 3]);
+  });
+
+  test("mcp.features.compute-fit-full-verbatim: compute_fit detail=full is the engine output unchanged (= the batch result stats); MCP fields in _meta", async (t) => {
+    if (!batchOk) return t.todo("engine without docs/23 batch (eve-dogma before 197223f)");
+    const r: any = await c.callTool({ name: "compute_fit", arguments: { eft: RIFTER_EFT, detail: "full" } });
+    const one = r.structuredContent;
+    for (const k of ["request_hash", "notes", "engine"]) assert.ok(!(k in one), `no ${k} in the stats`);
+    assert.match(r._meta["eve-fit-mcp"].request_hash, /^[0-9a-f]{8,}/);
+    assert.ok(Array.isArray(r._meta["eve-fit-mcp"].notes));
+    const b = await call(c, "compute_batch", { request: { fits: [{ id: "x", fit: RIFTER_EFT }] } });
+    assert.deepEqual(b.results[0].stats, one, "batch result stats == compute_fit detail=full");
+    const s = await call(c, "compute_fit", { eft: RIFTER_EFT });
+    assert.ok(s.request_hash && Array.isArray(s.notes), "the summary keeps its MCP fields");
+  });
+
+  test("mcp.features.batch-error-in-place: a fit the MCP cannot normalise errors at its own index; the others are computed", async (t) => {
+    if (!batchOk) return t.todo("engine without docs/23 batch (eve-dogma before 197223f)");
+    const bad = { ship: { type_id: 587 }, modules: [{ type_id: 999999999, slot: "low" }] };
+    const r: any = await c.callTool({ name: "compute_batch", arguments: { request: { fits: [{ id: "ok", fit: RIFTER_EFT }, { id: "bad", fit: bad }, { id: "ok2", fit: RIFTER_EFT }], fields: ["navigation.max_velocity"] } } });
+    assert.ok(!r.isError, r.content?.[0]?.text);
+    const b = r.structuredContent;
+    assert.equal(b.results.length, 3);
+    assert.equal(b.results[1].error.code, "UNKNOWN_TYPE");
+    assert.equal(b.results[1].index, 1);
+    assert.ok(b.results[0].stats && b.results[2].stats);
+    assert.ok(b.notes.some((n: string) => /fits\/1\/fit: .*passed to the engine unchanged/.test(n)));
+  });
+
+  test("mcp.features.builtin-profiles: compute_fit accepts the engine's built-in damage / target profiles like compute_batch", async (t) => {
+    if (!batchOk) return t.todo("engine without docs/23 batch (eve-dogma before 197223f)");
+    const fit = { ship: { type_id: 587 }, modules: [{ type_id: 2889, slot: "high", charge_type_id: 21898 }], damage_pattern: { builtin: "Uniform" }, target_profile: { builtin: "Uniform (50%)" } };
+    const one = await call(c, "compute_fit", { fit, detail: "full" });
+    const b = await call(c, "compute_batch", { request: { fits: [{ id: "x", fit }] } });
+    assert.deepEqual(b.results[0].stats, one);
+    const tool = await call(c, "compute_fit", { fit: { ship: { type_id: 587 } }, target_profile: { builtin: "Uniform (50%)" }, detail: "full", include_request: true });
+    assert.deepEqual(tool.request.target_profile, { builtin: "Uniform (50%)" });
+    // a real schema error names the right field
+    const e = await callErr(c, "compute_fit", { fit: { ship: { type_id: 587 }, damage_pattern: { em: [1] } } });
+    assert.match(e, /damage_pattern/);
+  });
+
+  test("mcp.features.load-prices: load_prices injects a price file into the engine (file layer: request > file > embedded snapshot)", async (t) => {
+    const f = await call(c, "compute_fit", { eft: RIFTER_EFT, price: true });
+    if (f.provenance === undefined) return t.todo("engine without docs/23 provenance (eve-dogma before 8bde0ba)");
+    const file = join(dir, "map.json");
+    writeFileSync(file, JSON.stringify({ "587": 123456, "2048": 7 }));
+    const l = await call(c, "load_prices", { source: file });
+    assert.equal(l.loaded.origin, "path");
+    assert.equal(l.loaded.engine.types, 2);
+    const p = await call(c, "compute_fit", { eft: RIFTER_EFT, price: true });
+    assert.equal(p.provenance.price_source, "file");
+    const ship = p.price.sections.ship.items[0];
+    assert.equal(ship.unit_isk, 123456);
+    // request prices beat the file; overrides beat both
+    const rq = await call(c, "compute_fit", { eft: RIFTER_EFT, prices: { isk: { "587": 5 } } });
+    assert.equal(rq.price.sections.ship.items[0].unit_isk, 5);
+    assert.equal(rq.provenance.price_source, "request");
+    const ov = await call(c, "compute_fit", { eft: RIFTER_EFT, price_overrides: [{ type_id: 587, price: 1 }] });
+    assert.equal(ov.price.sections.ship.items[0].unit_isk, 1);
+    assert.equal(ov.provenance.price_source, "file", "overrides do not change price_source");
+    // batch sees the same session state
+    const b = await call(c, "compute_batch", { request: { fits: [{ id: "x", fit: RIFTER_EFT }], price: true, fields: ["price.total_isk"] } });
+    assert.equal(b.provenance.price_source, "file");
+    assert.deepEqual((await call(c, "load_prices", {})).loaded.path, file);
+    // a broken file is the engine's error; the previous file stays loaded
+    writeFileSync(join(dir, "bad.json"), "[1,2]");
+    assert.match(await callErr(c, "load_prices", { source: join(dir, "bad.json") }), /^Error: BAD_PRICES: /);
+    assert.equal((await call(c, "compute_fit", { eft: RIFTER_EFT, price: true })).price.sections.ship.items[0].unit_isk, 123456);
+    assert.match(await callErr(c, "load_prices", { source: join(dir, "nope.json") }), /^Error: BAD_PRICES: price file not found/);
+    await call(c, "load_prices", { clear: true });
+    const back = await call(c, "compute_fit", { eft: RIFTER_EFT, price: true });
+    assert.notEqual(back.provenance.price_source, "file");
+    assert.equal((await call(c, "load_prices", {})).loaded, null);
+  });
+
+  test("mcp.features.prices-env-latest: EVE_FIT_PRICES=latest loads the newest eve-market-prices release (mock GitHub), cached for offline use", async (t) => {
+    const probe = await call(c, "compute_fit", { eft: RIFTER_EFT, price: true });
+    if (probe.provenance === undefined) return t.todo("engine without docs/23 provenance (eve-dogma before 8bde0ba)");
+    const gz = gzipSync(Buffer.from(JSON.stringify({ "587": 424242 })));
+    let hits = 0;
+    const srv: Server = createServer((req, res) => {
+      hits++;
+      if (req.url === "/repos/EX-CT/eve-market-prices/releases/latest") {
+        res.setHeader("content-type", "application/json");
+        res.end(JSON.stringify({ tag_name: "prices-jita44-20261003T000000Z", assets: [{ name: "prices-jita44-20261003T000000Z.json.gz", size: gz.length, browser_download_url: `http://127.0.0.1:${(srv.address() as any).port}/dl/p.json.gz` }, { name: "SHA256SUMS", size: 1, browser_download_url: "x" }] }));
+      } else if (req.url === "/dl/p.json.gz") res.end(gz);
+      else res.writeHead(404).end();
+    });
+    await new Promise<void>((r) => srv.listen(0, "127.0.0.1", r));
+    const cache = join(dir, "cache");
+    const env = { EVE_FIT_PRICES: "latest", EVE_FIT_GITHUB_API: `http://127.0.0.1:${(srv.address() as any).port}`, EVE_FIT_PRICE_CACHE: cache };
+    const c2 = await connect(env);
+    try {
+      const p = await call(c2, "compute_fit", { eft: RIFTER_EFT, price: true });
+      assert.equal(p.provenance.price_source, "file");
+      assert.equal(p.price.sections.ship.items[0].unit_isk, 424242);
+      const st = await call(c2, "load_prices", {});
+      assert.equal(st.loaded.release, "prices-jita44-20261003T000000Z");
+      assert.ok(existsSync(join(cache, "snapshots", "prices-jita44-20261003T000000Z.json.gz")));
+    } finally {
+      await c2.close();
+      srv.close();
+    }
+    assert.ok(hits >= 2);
+    // offline: the cached snapshot is used without network
+    const c3 = await connect({ ...env, EVE_FIT_OFFLINE: "1", EVE_FIT_GITHUB_API: "http://127.0.0.1:9" });
+    try {
+      const st = await call(c3, "load_prices", {});
+      assert.equal(st.loaded.origin, "release-cache");
+      assert.equal((await call(c3, "compute_fit", { eft: RIFTER_EFT, price: true })).price.sections.ship.items[0].unit_isk, 424242);
+    } finally {
+      await c3.close();
+    }
+  });
+});
+
 describe("data update: a second dataset", { skip: !haveEngine && "engine or dataset missing" }, () => {
   // A "new SDE": the same dataset with another build number and Rifter's CPU output +10 tf.
   let dir: string;

@@ -191,6 +191,54 @@
    "file": "src/test/features.test.ts"
   },
   {
+   "id": "mcp.features.batch-too-large-details",
+   "description": "BATCH_TOO_LARGE carries the engine's count and limit (text and structured error)",
+   "file": "src/test/features.test.ts",
+   "inventory": [
+    "ENG-BATCH-001"
+   ]
+  },
+  {
+   "id": "mcp.features.compute-fit-full-verbatim",
+   "description": "compute_fit detail=full is the engine output unchanged (= the batch result stats); MCP fields in _meta",
+   "file": "src/test/features.test.ts",
+   "inventory": [
+    "ENG-BATCH-001"
+   ]
+  },
+  {
+   "id": "mcp.features.batch-error-in-place",
+   "description": "a fit the MCP cannot normalise errors at its own index; the others are computed",
+   "file": "src/test/features.test.ts",
+   "inventory": [
+    "ENG-BATCH-001"
+   ]
+  },
+  {
+   "id": "mcp.features.builtin-profiles",
+   "description": "compute_fit accepts the engine's built-in damage / target profiles like compute_batch",
+   "file": "src/test/features.test.ts",
+   "inventory": [
+    "ENG-BATCH-001"
+   ]
+  },
+  {
+   "id": "mcp.features.load-prices",
+   "description": "load_prices injects a price file into the engine (file layer: request > file > embedded snapshot)",
+   "file": "src/test/features.test.ts",
+   "inventory": [
+    "ENG-PRICE-001"
+   ]
+  },
+  {
+   "id": "mcp.features.prices-env-latest",
+   "description": "EVE_FIT_PRICES=latest loads the newest eve-market-prices release (mock GitHub), cached for offline use",
+   "file": "src/test/features.test.ts",
+   "inventory": [
+    "ENG-PRICE-001"
+   ]
+  },
+  {
    "id": "mcp.features.second-dataset",
    "description": "switching EVE_DOGMA_DATASET updates engine_info, the index and its numbers, and flags an engine still on the old data",
    "file": "src/test/features.test.ts",
@@ -533,6 +581,30 @@
    "id": "mcp.unit.test-ids",
    "description": "(new) every test title starts with a unique stable id mcp.<file>.<slug>",
    "file": "src/test/unit.test.ts"
+  },
+  {
+   "id": "mcp.unit.prices-flag",
+   "description": "--prices FILE goes right after the binary (global flag), replaces an earlier one, null removes it",
+   "file": "src/test/unit.test.ts",
+   "inventory": [
+    "ENG-PRICE-001"
+   ]
+  },
+  {
+   "id": "mcp.unit.engine-error-details",
+   "description": "engine error objects keep their extra fields (count, limit, reason) as details",
+   "file": "src/test/unit.test.ts",
+   "inventory": [
+    "ENG-BATCH-001"
+   ]
+  },
+  {
+   "id": "mcp.unit.price-file-resolve",
+   "description": "path / URL / latest (release asset, cache, offline)",
+   "file": "src/test/unit.test.ts",
+   "inventory": [
+    "ENG-PRICE-001"
+   ]
   },
   {
    "id": "mcp.validation.charge-validity",

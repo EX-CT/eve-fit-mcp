@@ -14,6 +14,8 @@ import { batchTable, prepareBatch } from "../batch.js";
 import { goalScore, metric } from "../metrics.js";
 import { implantSets } from "../profiles.js";
 import { DATASET } from "./helpers.js";
+import { withPricesFlag, engineErrorFrom } from "../adapters/types.js";
+import { resolvePriceFile } from "../price-file.js";
 
 const noEngine = { kind: "none" } as unknown as EngineAdapter;
 
@@ -162,7 +164,11 @@ describe("dataset index", { skip: !existsSync(DATASET) && "dataset missing" }, (
     assert.deepEqual(v.request.variants[1].price_overrides, [{ type_id: 587, price: 1 }]);
     assert.deepEqual(v.request.product.axes[0], { name: "ammo", sweep: { path: "/modules/0/charge_type_id", values: [12608, 12614] } });
     await assert.rejects(prepareBatch(ctx, { fits: [{ id: "x" }] }), (e: any) => e.code === "BATCH_BAD_REQUEST");
-    await assert.rejects(prepareBatch(ctx, { fits: [{ fit: { ship: 999999999 } }] }), (e: any) => e.code === "UNKNOWN_TYPE" && /fits\/0\/fit/.test(e.path));
+    // a fit the MCP cannot normalise goes to the engine unchanged (per-fit error in place, docs/23), with a note
+    const bad = await prepareBatch(ctx, { fits: [{ fit: { ship: 999999999 } }] });
+    assert.deepEqual(bad.request.fits[0].fit, { ship: 999999999 });
+    assert.ok(bad.notes.some((n) => /^fits\/0\/fit: UNKNOWN_TYPE: .*passed to the engine unchanged/.test(n)), bad.notes.join("; "));
+    await assert.rejects(prepareBatch(ctx, { base: { ship: 999999999 }, variants: [] }), (e: any) => e.code === "UNKNOWN_TYPE" && e.path === "base");
   });
 
   test("mcp.unit.batch-table: markdown view of a BatchResponse (values, deltas, per-fit errors)", () => {
@@ -217,4 +223,44 @@ test("mcp.unit.test-ids: every test title starts with a unique stable id mcp.<fi
     }
   }
   assert.ok(seen.size >= 50, `only ${seen.size} ids found`);
+});
+
+test("mcp.unit.prices-flag: --prices FILE goes right after the binary (global flag), replaces an earlier one, null removes it", () => {
+  assert.deepEqual(withPricesFlag(["eve-fit", "--dataset", "d.gz", "serve-stdio"], "/p.json"), ["eve-fit", "--prices", "/p.json", "--dataset", "d.gz", "serve-stdio"]);
+  assert.deepEqual(withPricesFlag(["eve-fit", "--prices", "/a", "calc"], "/b"), ["eve-fit", "--prices", "/b", "calc"]);
+  assert.deepEqual(withPricesFlag(["eve-fit", "--prices", "/a", "calc"], null), ["eve-fit", "calc"]);
+});
+
+test("mcp.unit.engine-error-details: engine error objects keep their extra fields (count, limit, reason) as details", () => {
+  const e = engineErrorFrom({ code: "BATCH_TOO_LARGE", message: "too many", count: 2406, limit: 2000 });
+  assert.deepEqual([e.code, e.message, e.path, e.details], ["BATCH_TOO_LARGE", "too many", undefined, { count: 2406, limit: 2000 }]);
+  assert.equal(engineErrorFrom({ code: "X", message: "m", path: "fits/1" }).details, undefined);
+});
+
+test("mcp.unit.price-file-resolve: path / URL / latest (release asset, cache, offline)", async () => {
+  const { mkdtempSync, writeFileSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const d = mkdtempSync(join(tmpdir(), "efm-pf-"));
+  writeFileSync(join(d, "m.json"), "{}");
+  assert.equal((await resolvePriceFile(join(d, "m.json"), { cacheDir: d })).origin, "path");
+  await assert.rejects(resolvePriceFile(join(d, "none.json"), { cacheDir: d }), /BAD_PRICES|not found/);
+  const calls: string[] = [];
+  const fake = (async (url: string) => {
+    calls.push(url);
+    if (url.endsWith("/releases/latest")) return new Response(JSON.stringify({ tag_name: "prices-jita44-20261003T070857Z", assets: [{ name: "prices-jita44-20261003T070857Z.json", size: 2, browser_download_url: "https://dl/x.json" }, { name: "prices-jita44-20261003T070857Z.json.gz", size: 3, browser_download_url: "https://dl/x.json.gz" }] }));
+    if (url === "https://dl/x.json.gz") return new Response(new Uint8Array([1, 2, 3]));
+    if (url === "https://h/p.json") return new Response("{}");
+    return new Response("no", { status: 404 });
+  }) as unknown as typeof fetch;
+  const r = await resolvePriceFile("latest", { cacheDir: d, fetch: fake });
+  assert.deepEqual([r.origin, r.release, r.path.endsWith("prices-jita44-20261003T070857Z.json.gz")], ["release", "prices-jita44-20261003T070857Z", true], "the .json.gz asset is preferred");
+  await resolvePriceFile("latest", { cacheDir: d, fetch: fake });
+  assert.equal(calls.filter((u) => u === "https://dl/x.json.gz").length, 1, "same size: not downloaded again");
+  const off = await resolvePriceFile("latest", { cacheDir: d, offline: true, fetch: fake });
+  assert.equal(off.origin, "release-cache");
+  const down = await resolvePriceFile("latest", { cacheDir: d, fetch: (async () => new Response("x", { status: 503 })) as unknown as typeof fetch });
+  assert.equal(down.origin, "release-cache", "network failure falls back to the newest cached snapshot");
+  await assert.rejects(resolvePriceFile("latest", { cacheDir: join(d, "empty"), offline: true }), /PRICES_FETCH_FAILED|no cached/);
+  assert.equal((await resolvePriceFile("https://h/p.json", { cacheDir: d, fetch: fake })).origin, "url");
 });

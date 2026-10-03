@@ -168,4 +168,16 @@ describe("engine stats through compute_fit (Pyfa values)", { skip: !haveEngine &
     near(fi.ehp.shield, 5751.760563380282, "fighter ehp.shield");
     near(fi.shield_peak_recharge_hp_s, 18.231026785714285, "fighter shield recharge");
   });
+  test("mcp.stats.utility-modules: utility modules without stats (scanners, cloak, probe launcher) fit, cost resources, change nothing else", async () => {
+    const base = { ship: "Heron", modules: [] as unknown[] };
+    const util = { ship: "Heron", modules: ["Cargo Scanner I", "Ship Scanner I", "Prototype Cloaking Device I /online", "Core Probe Launcher I"] };
+    const b = await call(c, "compute_fit", { fit: base, detail: "full" });
+    const u = await call(c, "compute_fit", { fit: util, detail: "full" });
+    assert.equal(u.modules.length, 4);
+    assert.deepEqual(u.violations ?? [], [], JSON.stringify(u.violations));
+    assert.ok(u.resources.cpu.used > b.resources.cpu.used && u.resources.power.used > b.resources.power.used, "they cost CPU / PG");
+    assert.equal(u.offense.total.dps.total, 0);
+    assert.equal(u.defense.ehp.total, b.defense.ehp.total, "no tank change");
+    assert.equal(u.navigation.max_velocity, b.navigation.max_velocity, "online cloak: no speed change");
+  });
 });

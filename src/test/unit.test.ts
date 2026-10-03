@@ -75,6 +75,8 @@ describe("dataset index", { skip: !existsSync(DATASET) && "dataset missing" }, (
     const r: any = a.request;
     assert.equal(r.modules[0].charge_type_id, ds.byExactName("EMP S")!.id);
     assert.equal(r.modules[1].state, "offline");
+    const st: any = (await normalizeFit(ctx, { fit: { ship: "Rifter", modules: ["200mm AutoCannon II, EMP S /overheat", "Prototype Cloaking Device I /online", "Damage Control II /active"] } })).request;
+    assert.deepEqual(st.modules.map((m: any) => m.state), ["overheated", "online", "active"]);
     assert.equal(r.drones[0].quantity, 2);
     assert.equal(r.character.skills.default_level, 4);
     assert.equal(r.character.skills.levels[String(ds.byExactName("Gunnery")!.id)], 5);

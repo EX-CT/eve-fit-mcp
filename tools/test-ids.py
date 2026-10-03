@@ -18,6 +18,7 @@ INVENTORY = {
     "mcp.stats.remote-repair-spool": ["ENG-PROJ-006", "UI-STAT-OUT", "ENG-MOD-005"],
     "mcp.stats.bombing": ["ENG-OFF-007", "UI-STAT-BMB"],
     "mcp.stats.overheat": ["ENG-MOD-006", "ENG-MOD-007"],
+    "mcp.stats.utility-modules": ["ENG-MISC-002"],
     "mcp.stats.drone-fighter-hp": ["ENG-DRN-003", "ENG-FTR-004"],
     "mcp.validation.charge-validity": ["ENG-VAL-006"],
     "mcp.validation.resource-overflow": ["ENG-VAL-001"],

@@ -78,6 +78,7 @@ through `compute_fit detail:"full"`, case ids `mcp-bench.<suite>.<case>`, must m
 | `mcp.stats.bombing` | bombs needed to kill per bomb type and Covert Ops level (bench ext bomb_rifter) | ENG-OFF-007, UI-STAT-BMB |
 | `mcp.stats.overheat` | overheated modules get the heat bonus and a burnout estimate | ENG-MOD-006, ENG-MOD-007 |
 | `mcp.stats.drone-fighter-hp` | per-drone and per-fighter HP / EHP / shield recharge (bench ext dehp_vexor_hobgoblin, fehp_thanatos_firbolg) | ENG-DRN-003, ENG-FTR-004 |
+| `mcp.stats.utility-modules` | utility modules without stats (scanners, cloak, probe launcher) fit, cost resources, change nothing else | ENG-MISC-002 |
 | `mcp.unit.slots-hardpoints` | slots, hardpoints, kinds |  |
 | `mcp.unit.can-fit` | canFit: rig size and ship restrictions |  |
 | `mcp.unit.resolve-suggestions` | resolve gives suggestions |  |

@@ -428,6 +428,14 @@
    ]
   },
   {
+   "id": "mcp.stats.utility-modules",
+   "description": "utility modules without stats (scanners, cloak, probe launcher) fit, cost resources, change nothing else",
+   "file": "src/test/stats.test.ts",
+   "inventory": [
+    "ENG-MISC-002"
+   ]
+  },
+  {
    "id": "mcp.unit.slots-hardpoints",
    "description": "slots, hardpoints, kinds",
    "file": "src/test/unit.test.ts"

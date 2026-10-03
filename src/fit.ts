@@ -46,22 +46,23 @@ export function requestHash(req: unknown): string {
 }
 
 function parseModuleString(ds: Dataset, s: string) {
-  // EFT-style "Module Name, Charge Name /offline" or "Name x5"
+  // EFT-style "Module Name, Charge Name /offline" (also /online, /active, /overheated or /overheat) or "Name x5"
   let text = s.trim();
-  let offline = false;
-  if (/\s*\/offline$/i.test(text)) {
-    offline = true;
-    text = text.replace(/\s*\/offline$/i, "");
+  let state: string | undefined;
+  const m = /\s*\/(offline|online|active|overheated|overheat)$/i.exec(text);
+  if (m) {
+    state = m[1].toLowerCase() === "overheat" ? "overheated" : m[1].toLowerCase();
+    text = text.slice(0, m.index);
   }
   const [name, charge] = text.split(/\s*,\s*/, 2);
-  return { name, charge, offline };
+  return { name, charge, state };
 }
 
 export function resolveModule(ds: Dataset, m: any, notes: string[], where: string) {
   let spec: any = m;
   if (typeof m === "string") {
     const p = parseModuleString(ds, m);
-    spec = { name: p.name, charge: p.charge, state: p.offline ? "offline" : undefined };
+    spec = { name: p.name, charge: p.charge, state: p.state };
   } else if (typeof m === "number") spec = { type_id: m };
   const r = ref(spec);
   if (r === undefined) throw new Error(`${where}: module needs type_id or name`);

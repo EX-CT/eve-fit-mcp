@@ -52,7 +52,16 @@ export async function prepareBatch(ctx: Ctx, input: Record<string, any>, skills?
       req.fits.map(async (f: any, i: number) => {
         const w = `fits/${i}`;
         if (!f || typeof f !== "object" || f.fit === undefined) throw codedError("BATCH_BAD_REQUEST", `${w}: each entry needs \`fit\` (FitRequest, EFT text or DNA)`, w);
-        const e = { ...f, fit: await normSource(ctx, f.fit, f.skills ?? skills, `${w}/fit`, notes) };
+        let fit: unknown;
+        try {
+          fit = await normSource(ctx, f.fit, f.skills ?? skills, `${w}/fit`, notes);
+        } catch (err: any) {
+          // docs/23: one bad fit errors in place (the engine reports it at its index), it never rejects the batch.
+          // The MCP could not normalise this source, so the engine gets it as given and answers for it.
+          notes.push(`${w}/fit: ${err?.code ? err.code + ": " : ""}${err?.message ?? err}; passed to the engine unchanged (per-fit error in place)`);
+          fit = f.fit;
+        }
+        const e = { ...f, fit };
         delete e.skills;
         resolveEntryPrices(ctx, e, w);
         return e;

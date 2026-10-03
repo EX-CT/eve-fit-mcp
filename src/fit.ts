@@ -12,8 +12,8 @@ export interface FitInput {
   eft?: string;
   dna?: string;
   skills?: string | number | { default_level?: number; levels?: Record<string, number> };
-  damage_profile?: string | Record<string, number>;
-  target_profile?: string | Record<string, number | null>;
+  damage_profile?: string | Record<string, number | string>;
+  target_profile?: string | Record<string, number | string | null>;
   implant_set?: string;
 }
 
@@ -140,7 +140,7 @@ function applyProfiles(req: any, ctx: Ctx, input: FitInput | undefined, notes: s
       const p = targetProfile(tp);
       if (!p) throw new Error(`unknown target profile '${tp}' (see list_presets)`);
       req.target_profile = { em: p.em, thermal: p.thermal, kinetic: p.kinetic, explosive: p.explosive, signature_radius: p.signature_radius, max_velocity: p.max_velocity, radius: p.radius ?? null };
-    } else req.target_profile = { em: 0, thermal: 0, kinetic: 0, explosive: 0, ...tp };
+    } else req.target_profile = "builtin" in tp ? tp : { em: 0, thermal: 0, kinetic: 0, explosive: 0, ...tp };
   }
   if (input?.implant_set) {
     const s = findImplantSet(ctx.ds, input.implant_set);

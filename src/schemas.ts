@@ -45,8 +45,10 @@ export const FitRequestLenient = z
     fleet: z.record(z.string(), z.any()).optional().describe("{buffs:[{buff_id,value}], booster_fits:[FitRequest]}"),
     projected: z.array(z.record(z.string(), z.any())).optional().describe('[{kind:"module"|"drone"|"fighter"|"fit", module|drone|fighter|fit, amount, distance_m}]'),
     environment: z.record(z.string(), z.any()).optional(),
-    damage_pattern: z.record(z.string(), z.number()).nullable().optional(),
-    target_profile: z.record(z.string(), z.number().nullable()).nullable().optional(),
+    // the engine also takes built-in profiles ({"builtin": "Uniform"}, docs/23 / bench ext dpb / tpb): any JSON value
+    // per key is passed through, the engine validates
+    damage_pattern: z.record(z.string(), z.union([z.number(), z.string()]).nullable()).nullable().optional().describe("{em,thermal,kinetic,explosive} or {builtin: name}"),
+    target_profile: z.record(z.string(), z.union([z.number(), z.string()]).nullable()).nullable().optional().describe("{signature_radius,max_velocity,em,…} or {builtin: name}"),
     overrides: z.array(z.record(z.string(), z.any())).optional(),
     options: z.record(z.string(), z.any()).optional(),
   })
@@ -60,8 +62,8 @@ export const fitInputShape = {
     .union([z.number().int().min(0).max(5), z.string(), z.object({ default_level: z.number().int().min(0).max(5).optional(), levels: z.record(z.string(), z.number().int().min(0).max(5)).optional() })])
     .optional()
     .describe("skill level for every skill (0-5), a preset (all_5 … all_0), or {default_level, levels:{skill name|id: level}}; default all_5"),
-  damage_profile: z.union([z.string(), z.record(z.string(), z.number())]).optional().describe("incoming damage for EHP: preset name (list_presets) or {em,thermal,kinetic,explosive}"),
-  target_profile: z.union([z.string(), z.record(z.string(), z.number().nullable())]).optional().describe("target for applied DPS: preset name or {signature_radius,max_velocity,em,…}"),
+  damage_profile: z.union([z.string(), z.record(z.string(), z.union([z.number(), z.string()]))]).optional().describe("incoming damage for EHP: preset name (list_presets), {em,thermal,kinetic,explosive} or the engine's {builtin: name}"),
+  target_profile: z.union([z.string(), z.record(z.string(), z.union([z.number(), z.string()]).nullable())]).optional().describe("target for applied DPS: preset name, {signature_radius,max_velocity,em,…} or the engine's {builtin: name}"),
   implant_set: z.string().optional().describe('add a pirate implant set, e.g. "High-grade Crystal"'),
 };
 

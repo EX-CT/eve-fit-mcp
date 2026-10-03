@@ -89,8 +89,9 @@ test("metrics and goal score", () => {
   assert.throws(() => metric("nope"), /unknown metric/);
 });
 
-test("default engine is variant F (eve-dogma-f); EVE_DOGMA_BIN selects another", () => {
-  assert.equal(loadConfig({}).bin, "eve-dogma-f");
+test("default engine is F (eve-fit from EX-CT/eve-dogma); EVE_DOGMA_BIN selects another", () => {
+  assert.equal(loadConfig({}).bin, "eve-fit");
+  assert.equal(loadConfig({ EVE_DOGMA_BIN: "eve-dogma-f" }).bin, "eve-dogma-f");
   assert.equal(loadConfig({ EVE_DOGMA_BIN: "/opt/eve-dogma-rs/eve-dogma" }).bin, "/opt/eve-dogma-rs/eve-dogma");
   assert.equal(loadConfig({}).rpcCmd, "{bin} --dataset {dataset} serve-stdio");
 });

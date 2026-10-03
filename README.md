@@ -6,9 +6,10 @@ scenarios, and let a batch-evaluating optimiser suggest modules.
 
 It is **engine-agnostic**. Numbers come from any engine that implements the stateless
 [eve-dogma contract](https://github.com/EX-CT/eve-dogma-rs/blob/main/docs/contract.md):
-**variant F** (`eve-dogma-f`, Rust, the mainline engine; native build of `eve-dogma-lab` `variant-f-features` at the commit
-pinned in [`engines.lock`](engines.lock), LGPL-3.0-or-later) by default, or any other contract engine via
-`EVE_DOGMA_BIN`: `eve-dogma-rs` (`eve-dogma`, variant A, frozen), the Go variant C, and so on. The engine runs
+**engine F** (`eve-fit`, Rust, the mainline engine from [EX-CT/eve-dogma](https://github.com/EX-CT/eve-dogma); native
+build of crate `eve-cli` at the commit pinned in [`engines.lock`](engines.lock), LGPL-3.0-or-later) by default, or any
+other contract engine via `EVE_DOGMA_BIN`: the older `eve-dogma-f` (eve-dogma-lab), `eve-dogma-rs` (`eve-dogma`,
+variant A, frozen), the Go variant C, and so on. The engine runs
 behind a pluggable adapter:
 
 | adapter | how | when |
@@ -73,12 +74,12 @@ straight from the release.
    [EX-CT/eve-sde-pipeline releases](https://github.com/EX-CT/eve-sde-pipeline/releases/latest):
    `gh release download -R EX-CT/eve-sde-pipeline -p 'dataset-*.json.gz'`.
    The release's `manifest.json` names the file and its SHA-256.
-2. **Engine:** the default is `eve-dogma-f` (variant F) on `PATH`. F compiles the dataset into the binary, so build
+2. **Engine:** the default is `eve-fit` (engine F) on `PATH`. F compiles the dataset into the binary, so build
    it with the same file you give the MCP (stable Rust; the commit is the one in [`engines.lock`](engines.lock)):
 
    ```bash
    EVE_DOGMA_DATASET=/path/to/dataset.json.gz cargo install --locked \
-     --git https://github.com/EX-CT/eve-dogma-lab --rev 4b8f5f981c348fab50e0ad8abc44d3eec3b62d5c eve-dogma-f
+     --git https://github.com/EX-CT/eve-dogma --rev 8b85262e6298dfe2e5147cb17207a6e64322fe4e eve-cli   # installs eve-fit
    ```
 
    Any other contract engine works through `EVE_DOGMA_BIN`, e.g. eve-dogma-rs (variant A, frozen):
@@ -105,7 +106,7 @@ straight from the release.
      }
      ```
 
-To pin a version, replace `latest/download/eve-fit-mcp.tgz` with e.g. `download/v0.2.0/eve-fit-mcp-0.2.0.tgz`. To install
+To pin a version, replace `latest/download/eve-fit-mcp.tgz` with e.g. `download/v0.2.1/eve-fit-mcp-0.2.1.tgz`. To install
 globally, run `npm install -g https://github.com/EX-CT/eve-fit-mcp/releases/latest/download/eve-fit-mcp.tgz` and use `"command": "eve-fit-mcp"`. Check the install with
 `npx -y --package=https://github.com/EX-CT/eve-fit-mcp/releases/latest/download/eve-fit-mcp.tgz eve-fit-mcp --help`.
 
@@ -114,7 +115,7 @@ globally, run `npm install -g https://github.com/EX-CT/eve-fit-mcp/releases/late
 ```bash
 git clone https://github.com/EX-CT/eve-fit-mcp && cd eve-fit-mcp
 npm ci && npm run build
-# the default engine, variant F (eve-dogma-f; pinned commit in engines.lock, see "Quick install" step 2),
+# the default engine, F (eve-fit from EX-CT/eve-dogma; pinned commit in engines.lock, see "Quick install" step 2),
 # or any contract engine via EVE_DOGMA_BIN (eve-dogma-rs, variant C, ...)
 # a dataset: dataset-<build>.json.gz from the EX-CT/eve-sde-pipeline releases
 ```
@@ -124,7 +125,7 @@ npm ci && npm run build
 | variable | default | meaning |
 |---|---|---|
 | `EVE_DOGMA_DATASET` | (required) | dataset used by the engine **and** the search index (also needed with `http`: the index is local) |
-| `EVE_DOGMA_BIN` | `eve-dogma-f` | engine binary (variant F by default; e.g. `eve-dogma` for eve-dogma-rs, `eve-dogma-go` for variant C) |
+| `EVE_DOGMA_BIN` | `eve-fit` | engine binary (F by default; e.g. `eve-dogma-f` for the pre-migration F build, `eve-dogma` for eve-dogma-rs, `eve-dogma-go` for variant C) |
 | `EVE_FIT_ADAPTER` | `rpc` | `rpc`, `cli` or `http` |
 | `EVE_FIT_ENGINE_URL` | – | engine base URL for `http`, e.g. `http://127.0.0.1:8080` |
 | `EVE_FIT_RPC_CMD` | `{bin} --dataset {dataset} serve-stdio` | rpc command template |
@@ -138,7 +139,7 @@ npm ci && npm run build
 | `EVE_FIT_ALLOWED_HOSTS` | loopback + bind host | extra `Host` header values accepted by `--http` (comma-separated; DNS-rebinding protection). `*` disables the check |
 
 The templates make any engine pluggable. For example, eve-dogma-rs (variant A): `EVE_DOGMA_BIN=/path/eve-dogma`;
-variant C (Go): `EVE_DOGMA_BIN=/path/eve-dogma-go` (same CLI shape; its serve mode adds a response memo). Variant F
+variant C (Go): `EVE_DOGMA_BIN=/path/eve-dogma-go` (same CLI shape; its serve mode adds a response memo). F (`eve-fit`, and the older `eve-dogma-f`)
 accepts and ignores `--dataset` (its dataset is compiled in), so the default templates work for all of them.
 EFT input gets the MCP's own default module states (same as DNA / JSON input) whatever the engine's `eft_parse` assigns.
 
@@ -153,7 +154,7 @@ EFT input gets the MCP's own default module states (same as DNA / JSON input) wh
       "command": "node",
       "args": ["/path/to/eve-fit-mcp/dist/main.js"],
       "env": {
-        "EVE_DOGMA_BIN": "/path/to/.cargo/bin/eve-dogma-f",
+        "EVE_DOGMA_BIN": "/path/to/.cargo/bin/eve-fit",
         "EVE_DOGMA_DATASET": "/path/to/dataset-3569502.json.gz"
       }
     }
@@ -172,7 +173,7 @@ EFT input gets the MCP's own default module states (same as DNA / JSON input) wh
       "command": "node",
       "args": ["/path/to/eve-fit-mcp/dist/main.js"],
       "env": {
-        "EVE_DOGMA_BIN": "/path/to/eve-dogma-f",
+        "EVE_DOGMA_BIN": "/path/to/eve-fit",
         "EVE_DOGMA_DATASET": "/path/to/dataset-3569502.json.gz",
         "EVE_FIT_WORKERS": "2"
       }
@@ -207,12 +208,13 @@ npm test          # builds, then runs unit tests and integration tests that spaw
 npm run schemas   # regenerate schemas/tools/*.json
 ```
 
-Tests find the engine and dataset through `EVE_DOGMA_DATASET`, `EVE_DOGMA_BIN` (default engine: variant F; set it to
+Tests find the engine and dataset through `EVE_DOGMA_DATASET`, `EVE_DOGMA_BIN` (default engine: F; set it to
 eve-dogma-rs or another engine to test that one) and `EVE_DOGMA_GO_BIN` (variant C). Without them, they look for
 sibling checkouts under `EVE_FIT_DEV_ROOT`, which defaults to the parent directory of this repo:
-`data/dataset-3569502.json.gz`, `lab-f/variant-f/target/release/eve-dogma-f` and `lab-c/variant-c/bin/eve-dogma-go`.
+`data/dataset-3569502.json.gz`, `eve-dogma/target/release/eve-fit` (else `lab-f/variant-f/target/release/eve-dogma-f`) and
+`lab-c/variant-c/bin/eve-dogma-go`.
 Suites whose engine or dataset is missing are skipped. CI's `test` job runs the unit tests (Node 20 and 22); its
-`engine` job builds variant F from `engines.lock` on the latest SDE-pipeline dataset and runs the integration suites
+`engine` job builds F (`eve-fit`) from `engines.lock` on the latest SDE-pipeline dataset and runs the integration suites
 against it (only the variant C suites skip there). They cover:
 * every tool, resource and prompt;
 * EFT/DNA/JSON equivalence;
@@ -221,8 +223,8 @@ against it (only the variant C suites skip there). They cover:
 * a bad engine binary;
 * Streamable HTTP.
 
-TODO: when F's bot migrates F to EX-CT/eve-dogma, repoint `VARIANT_F_REPO` / `VARIANT_F_SHA` in `engines.lock` and the
-install command above to that repo.
+TODO: F's owner is fixing `eft_parse` (turrets/launchers parsed "online"); after that fix, bump `VARIANT_F_SHA` in
+`engines.lock` and the install command above, and drop the EFT default-state workaround in `src/fit.ts`.
 
 ## Design notes
 * **Stateless.** Every call carries the whole fit. Notes say what was assumed (e.g. skills).

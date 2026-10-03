@@ -1,4 +1,4 @@
-// Integration tests: the real MCP server over stdio, the real engine (variant F eve-dogma-f by default; EVE_DOGMA_BIN picks another), the real dataset.
+// Integration tests: the real MCP server over stdio, the real engine (F = eve-fit by default; EVE_DOGMA_BIN picks another), the real dataset.
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";

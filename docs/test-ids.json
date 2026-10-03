@@ -1,6 +1,6 @@
 {
  "schema": "mcp-test-ids/1",
- "format": "mcp.<file>.<slug>: <description>; file = unit|integration|features|adapters",
+ "format": "mcp.<file>.<slug>: <description>; file = unit|integration|features|adapters|stats|validation",
  "base": "64d6cd6",
  "tests": [
   {
@@ -79,9 +79,41 @@
    "file": "src/test/features.test.ts"
   },
   {
+   "id": "mcp.features.price-fit-engine",
+   "description": "price_fit hands market prices (+ own isk) and overrides to the engine; legacy sum only for old engines",
+   "file": "src/test/features.test.ts",
+   "inventory": [
+    "ENG-PRICE-001",
+    "PRC-002",
+    "PRC-003"
+   ]
+  },
+  {
    "id": "mcp.features.list-graphs",
    "description": "list_graphs: the 10 Pyfa graphs, CONTRACT-GRAPHS 0.2",
    "file": "src/test/features.test.ts"
+  },
+  {
+   "id": "mcp.features.contract-error-codes",
+   "description": "engine error codes pass through verbatim; MCP input errors are BAD_REQUEST",
+   "file": "src/test/features.test.ts"
+  },
+  {
+   "id": "mcp.features.price-passthrough",
+   "description": "compute_fit sends docs/23 price inputs to the engine and returns its price block verbatim",
+   "file": "src/test/features.test.ts",
+   "inventory": [
+    "ENG-PRICE-001",
+    "PRC-003"
+   ]
+  },
+  {
+   "id": "mcp.features.compute-batch",
+   "description": "compute_batch passes the BatchRequest to the engine; results equal compute_fit one by one",
+   "file": "src/test/features.test.ts",
+   "inventory": [
+    "ENG-BATCH-001"
+   ]
   },
   {
    "id": "mcp.features.compute-graph-stats",
@@ -96,7 +128,11 @@
   {
    "id": "mcp.features.projected-environment",
    "description": "projected (stasis webifier) and environment (beacon)",
-   "file": "src/test/features.test.ts"
+   "file": "src/test/features.test.ts",
+   "inventory": [
+    "ENG-PROJ-001",
+    "ENG-ENV-001"
+   ]
   },
   {
    "id": "mcp.features.fleet-overrides",
@@ -106,12 +142,61 @@
   {
    "id": "mcp.features.mutated-fighters",
    "description": "mutated module and fighters",
-   "file": "src/test/features.test.ts"
+   "file": "src/test/features.test.ts",
+   "inventory": [
+    "ENG-FTR-001",
+    "ENG-FTR-003",
+    "ENG-MOD-008",
+    "ENG-DEF-001"
+   ]
+  },
+  {
+   "id": "mcp.features.options-passthrough",
+   "description": "engine options (factor_reload, default_spool, rah) reach the engine and change the numbers",
+   "file": "src/test/features.test.ts",
+   "inventory": [
+    "UI-PREF-ENG",
+    "ENG-MOD-004",
+    "ENG-MOD-005",
+    "ENG-DEF-004"
+   ]
+  },
+  {
+   "id": "mcp.features.security-status-passthrough",
+   "description": "character.security_status reaches the engine request",
+   "file": "src/test/features.test.ts",
+   "inventory": [
+    "CHR-007 (partial)"
+   ]
+  },
+  {
+   "id": "mcp.features.security-status-value",
+   "description": "a security-status-dependent value changes (CONCORD armor repair bonus)",
+   "file": "src/test/features.test.ts",
+   "inventory": [
+    "CHR-007 (todo: engine lacks effect 6871)"
+   ]
   },
   {
    "id": "mcp.features.browse-market",
    "description": "browse_market / get_type market info through the server",
    "file": "src/test/features.test.ts"
+  },
+  {
+   "id": "mcp.features.second-dataset",
+   "description": "switching EVE_DOGMA_DATASET updates engine_info, the index and its numbers, and flags an engine still on the old data",
+   "file": "src/test/features.test.ts",
+   "inventory": [
+    "SVC-004"
+   ]
+  },
+  {
+   "id": "mcp.features.second-dataset-runtime-engine",
+   "description": "an engine that loads the dataset at run time (variant C) computes on the new data",
+   "file": "src/test/features.test.ts",
+   "inventory": [
+    "SVC-004"
+   ]
   },
   {
    "id": "mcp.integration.list-tools",
@@ -132,6 +217,14 @@
    "id": "mcp.integration.get-type-ship",
    "description": "get_type and get_ship",
    "file": "src/test/integration.test.ts"
+  },
+  {
+   "id": "mcp.integration.get-ship-traits",
+   "description": "get_ship lists the hull traits (role + per-skill bonus lines, en/zh) and the bonus shows in the numbers (Cerberus, T2)",
+   "file": "src/test/integration.test.ts",
+   "inventory": [
+    "ENG-SHIP-006"
+   ]
   },
   {
    "id": "mcp.integration.eft-import-states",
@@ -156,7 +249,10 @@
   {
    "id": "mcp.integration.full-detail-sections",
    "description": "full detail with sections",
-   "file": "src/test/integration.test.ts"
+   "file": "src/test/integration.test.ts",
+   "inventory": [
+    "UI-STAT-CAP"
+   ]
   },
   {
    "id": "mcp.integration.validate-fit",
@@ -229,6 +325,109 @@
    "file": "src/test/integration.test.ts"
   },
   {
+   "id": "mcp.stats.defense-values",
+   "description": "HP, resists per layer and EHP of a known fit (bench exct_rifter)",
+   "file": "src/test/stats.test.ts",
+   "inventory": [
+    "ENG-DEF-001",
+    "UI-STAT-RST"
+   ]
+  },
+  {
+   "id": "mcp.stats.capacitor-values",
+   "description": "capacitor capacity, recharge, peak, simulated stable % (bench exct_rifter)",
+   "file": "src/test/stats.test.ts",
+   "inventory": [
+    "ENG-CAP-001",
+    "ENG-CAP-002",
+    "UI-STAT-CAP"
+   ]
+  },
+  {
+   "id": "mcp.stats.navigation-values",
+   "description": "speed, align, agility, mass, signature, warp (bench exct_rifter)",
+   "file": "src/test/stats.test.ts",
+   "inventory": [
+    "ENG-NAV-001",
+    "ENG-NAV-002 (partial)"
+   ]
+  },
+  {
+   "id": "mcp.stats.targeting-values",
+   "description": "lock range, scan resolution, targets, sensor strength, lock times, probe size (bench exct_rifter, probe_rifter)",
+   "file": "src/test/stats.test.ts",
+   "inventory": [
+    "ENG-TGT-001",
+    "ENG-TGT-004",
+    "UI-STAT-TGT"
+   ]
+  },
+  {
+   "id": "mcp.stats.illegal-fit-computed",
+   "description": "a fit with violations is still computed in full (Pyfa 'disable fitting restrictions'; bench exct_rifter)",
+   "file": "src/test/stats.test.ts",
+   "inventory": [
+    "ENG-VAL-005",
+    "ENG-VAL-001"
+   ]
+  },
+  {
+   "id": "mcp.stats.mining",
+   "description": "mining yield of modules and drones (bench ext mining_venture)",
+   "file": "src/test/stats.test.ts",
+   "inventory": [
+    "ENG-OFF-006",
+    "UI-STAT-MIN",
+    "ENG-DRN-002"
+   ]
+  },
+  {
+   "id": "mcp.stats.remote-repair",
+   "description": "outgoing remote shield repair and cap transfer (bench ext rr_basilisk)",
+   "file": "src/test/stats.test.ts",
+   "inventory": [
+    "ENG-PROJ-006",
+    "UI-STAT-OUT"
+   ]
+  },
+  {
+   "id": "mcp.stats.remote-repair-spool",
+   "description": "mutadaptive remote armor repairer spool range (bench ext rr_zarmazd_spool)",
+   "file": "src/test/stats.test.ts",
+   "inventory": [
+    "ENG-PROJ-006",
+    "UI-STAT-OUT",
+    "ENG-MOD-005"
+   ]
+  },
+  {
+   "id": "mcp.stats.bombing",
+   "description": "bombs needed to kill per bomb type and Covert Ops level (bench ext bomb_rifter)",
+   "file": "src/test/stats.test.ts",
+   "inventory": [
+    "ENG-OFF-007",
+    "UI-STAT-BMB"
+   ]
+  },
+  {
+   "id": "mcp.stats.overheat",
+   "description": "overheated modules get the heat bonus and a burnout estimate",
+   "file": "src/test/stats.test.ts",
+   "inventory": [
+    "ENG-MOD-006",
+    "ENG-MOD-007"
+   ]
+  },
+  {
+   "id": "mcp.stats.drone-fighter-hp",
+   "description": "per-drone and per-fighter HP / EHP / shield recharge (bench ext dehp_vexor_hobgoblin, fehp_thanatos_firbolg)",
+   "file": "src/test/stats.test.ts",
+   "inventory": [
+    "ENG-DRN-003",
+    "ENG-FTR-004"
+   ]
+  },
+  {
    "id": "mcp.unit.slots-hardpoints",
    "description": "slots, hardpoints, kinds",
    "file": "src/test/unit.test.ts"
@@ -264,6 +463,47 @@
    "file": "src/test/unit.test.ts"
   },
   {
+   "id": "mcp.unit.empty-nested-arrays",
+   "description": "empty fleet.booster_fits / projected / buffs are accepted at every depth",
+   "file": "src/test/unit.test.ts",
+   "inventory": [
+    "ENG-PROJ-003",
+    "ENG-FLT-002"
+   ]
+  },
+  {
+   "id": "mcp.unit.price-inputs",
+   "description": "docs/23 price_overrides / prices / price go onto the FitRequest; names resolved, no pricing math",
+   "file": "src/test/unit.test.ts",
+   "inventory": [
+    "ENG-PRICE-001"
+   ]
+  },
+  {
+   "id": "mcp.unit.batch-prepare",
+   "description": "compute_batch normalises fit sources and names only; the rest of the BatchRequest is verbatim",
+   "file": "src/test/unit.test.ts",
+   "inventory": [
+    "ENG-BATCH-001"
+   ]
+  },
+  {
+   "id": "mcp.unit.batch-table",
+   "description": "markdown view of a BatchResponse (values, deltas, per-fit errors)",
+   "file": "src/test/unit.test.ts",
+   "inventory": [
+    "ENG-BATCH-001"
+   ]
+  },
+  {
+   "id": "mcp.unit.projected-fighter-default-quantity",
+   "description": "no quantity is left to the engine (full squadron); explicit counts kept",
+   "file": "src/test/unit.test.ts",
+   "inventory": [
+    "ENG-PROJ-002"
+   ]
+  },
+  {
    "id": "mcp.unit.metrics-goal-score",
    "description": "metrics and goal score",
    "file": "src/test/unit.test.ts"
@@ -277,6 +517,76 @@
    "id": "mcp.unit.test-ids",
    "description": "(new) every test title starts with a unique stable id mcp.<file>.<slug>",
    "file": "src/test/unit.test.ts"
+  },
+  {
+   "id": "mcp.validation.charge-validity",
+   "description": "validate_fit flags charge group, size and capacity per module (bench ext val_charge_group, val_charge_size, val_charge_capacity)",
+   "file": "src/test/validation.test.ts",
+   "inventory": [
+    "ENG-VAL-006"
+   ]
+  },
+  {
+   "id": "mcp.validation.resource-overflow",
+   "description": "CPU / powergrid / calibration / drone bandwidth overflow is flagged (bench ext val_cpu_power_overload, val_slots_mid_low_rig, val_drone_bandwidth)",
+   "file": "src/test/validation.test.ts",
+   "inventory": [
+    "ENG-VAL-001"
+   ]
+  },
+  {
+   "id": "mcp.validation.ship-restriction",
+   "description": "modules the hull cannot fit (command burst on a frigate, capital module on a cruiser) (bench ext val_ship_restriction_burst, val_capital_module_subcap)",
+   "file": "src/test/validation.test.ts",
+   "inventory": [
+    "ENG-VAL-003"
+   ]
+  },
+  {
+   "id": "mcp.validation.slots-hardpoints-groups",
+   "description": "slots, hardpoints, max group fitted / active / online (bench ext val_slots_high, val_launcher_hardpoints, val_max_group_*)",
+   "file": "src/test/validation.test.ts",
+   "inventory": [
+    "ENG-VAL-002",
+    "ENG-VAL-003"
+   ]
+  },
+  {
+   "id": "mcp.validation.missing-skills",
+   "description": "missing skills name the skill and level (bench ext val_missing_skills_partial, val_missing_skills_all0)",
+   "file": "src/test/validation.test.ts",
+   "inventory": [
+    "ENG-VAL-004"
+   ]
+  },
+  {
+   "id": "mcp.validation.validate-false",
+   "description": "options.validate=false skips the checks; validate_fit always checks (bench ext unit_val_validate_false)",
+   "file": "src/test/validation.test.ts",
+   "inventory": [
+    "ENG-VAL-005",
+    "UI-PREF-ENG (partial)"
+   ]
+  },
+  {
+   "id": "mcp.validation.allow-violations",
+   "description": "an illegal fit is computed in full with its violations, and allow_violations keeps rule-breaking candidates (bench ext val_disable_restrictions_stats)",
+   "file": "src/test/validation.test.ts",
+   "inventory": [
+    "ENG-VAL-005"
+   ]
   }
- ]
+ ],
+ "suites": {
+  "mcp-bench": {
+   "tool": "tools/mcp-dogma-bench.py",
+   "case_ids": "mcp-bench.<suite>.<case>",
+   "suites": [
+    "core",
+    "ext",
+    "effects",
+    "cap"
+   ]
+  }
+ }
 }

@@ -11,7 +11,7 @@ import { splitWords } from "../adapters/cmd.js";
 import { call, connect, DATASET, GO_BIN, haveEngine, MAIN, RIFTER_EFT, ENGINE_BIN } from "./helpers.js";
 
 /** Variant C predates the stats-ext outputs (mining, outgoing, bombing, heat, probe_size): compare the metrics it does return. */
-function sameShared(c: Record<string, number | null>, f: Record<string, number | null>, msg?: string) {
+function sameShared(c: Record<string, number | null>, f: Record<string, number | null>, msg = "engines agree on the shared metrics") {
   const keys = Object.keys(c).filter((k) => c[k] !== null);
   assert.ok(keys.length >= 30, `variant C returned only ${keys.length} metrics`);
   assert.deepEqual(Object.fromEntries(keys.map((k) => [k, c[k]])), Object.fromEntries(keys.map((k) => [k, f[k]])), msg);

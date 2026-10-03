@@ -3,12 +3,15 @@
 import { spawn } from "node:child_process";
 import {
   EngineError,
+  engineErrorFrom,
   isContractError,
   type ContractError,
   type EngineAdapter,
   type EngineMeta,
   type FitRequest,
   type FitStats,
+  type PricesLoadResult,
+  withPricesFlag,
 } from "./types.js";
 
 export interface CliOptions {
@@ -72,7 +75,7 @@ export class CliAdapter implements EngineAdapter {
     const text = r.stdout.trim();
     if (!text) throw new EngineError("ENGINE_EXIT", `engine exited ${r.code} without output: ${r.stderr.trim().slice(-500)}`);
     const v = parseJson(text, "calc");
-    if (isContractError(v)) throw new EngineError(v.error.code, v.error.message, v.error.path);
+    if (isContractError(v)) throw engineErrorFrom(v.error);
     return v as FitStats;
   }
 
@@ -98,8 +101,8 @@ export class CliAdapter implements EngineAdapter {
         continue;
       }
       if (msg?.id !== 1) continue;
-      if (msg.error) throw new EngineError(msg.error.code ?? "ENGINE_ERROR", msg.error.message ?? String(msg.error));
-      if (isContractError(msg.result)) throw new EngineError(msg.result.error.code, msg.result.error.message, msg.result.error.path);
+      if (msg.error) throw engineErrorFrom(msg.error);
+      if (isContractError(msg.result)) throw engineErrorFrom(msg.result.error);
       return msg.result as T;
     }
     throw new EngineError("BAD_ENGINE_RESPONSE", `${method}: no response (exit ${r.code}): ${r.stderr.trim().slice(-500)}`);
@@ -122,6 +125,13 @@ export class CliAdapter implements EngineAdapter {
 
   call<T = unknown>(method: string, params: unknown): Promise<T> {
     return this.rpc<T>(method, params);
+  }
+
+  /** Injected price file: validated once through RPC `prices_load`, then `--prices FILE` on every later spawn. */
+  async setPrices(path: string | null): Promise<PricesLoadResult> {
+    const r = path ? await this.rpc<PricesLoadResult>("prices_load", { path }) : { ok: true, types: 0 };
+    this.opts = { ...this.opts, calcArgv: withPricesFlag(this.opts.calcArgv, path), batchArgv: withPricesFlag(this.opts.batchArgv, path), rpcArgv: withPricesFlag(this.opts.rpcArgv, path) };
+    return r;
   }
 
   async close(): Promise<void> {}

@@ -3,12 +3,14 @@
 // Works with `eve-dogma-go serve-http` and any server that implements those routes.
 import {
   EngineError,
+  engineErrorFrom,
   isContractError,
   type ContractError,
   type EngineAdapter,
   type EngineMeta,
   type FitRequest,
   type FitStats,
+  type PricesLoadResult,
 } from "./types.js";
 
 export interface HttpOptions {
@@ -52,7 +54,7 @@ export class HttpAdapter implements EngineAdapter {
   async calc(req: FitRequest): Promise<FitStats> {
     const r = await this.req("/v1/calc", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(req) });
     const v = await this.json(r, "calc");
-    if (isContractError(v)) throw new EngineError(v.error.code, v.error.message, v.error.path);
+    if (isContractError(v)) throw engineErrorFrom(v.error);
     if (!r.ok) throw new EngineError("ENGINE_HTTP", `calc: HTTP ${r.status}`);
     return v as FitStats;
   }
@@ -74,7 +76,7 @@ export class HttpAdapter implements EngineAdapter {
   private async rpc<T>(method: string, params: unknown): Promise<T> {
     const r = await this.req("/v1/rpc", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: 1, method, params }) });
     const v: any = await this.json(r, method);
-    if (v?.error) throw new EngineError(v.error.code ?? "ENGINE_ERROR", v.error.message ?? String(v.error), v.error.path);
+    if (v?.error) throw engineErrorFrom(v.error);
     const res = v && "result" in v ? v.result : v;
     if (isContractError(res)) throw new EngineError(res.error.code, res.error.message, res.error.path);
     return res as T;
@@ -99,6 +101,17 @@ export class HttpAdapter implements EngineAdapter {
 
   call<T = unknown>(method: string, params: unknown): Promise<T> {
     return this.rpc<T>(method, params);
+  }
+
+  /** Injected price file on a remote engine: the file's JSON is sent (RPC `prices_load {snapshot}`); it is session /
+   *  server state there. */
+  async setPrices(path: string | null): Promise<PricesLoadResult> {
+    if (!path) return this.rpc<PricesLoadResult>("prices_load", { clear: true });
+    const { readFileSync } = await import("node:fs");
+    const { gunzipSync } = await import("node:zlib");
+    const raw = readFileSync(path);
+    const json = JSON.parse((raw[0] === 0x1f && raw[1] === 0x8b ? gunzipSync(raw) : raw).toString("utf8"));
+    return this.rpc<PricesLoadResult>("prices_load", { snapshot: json });
   }
 
   async close(): Promise<void> {}

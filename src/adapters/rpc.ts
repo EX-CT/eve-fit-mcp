@@ -5,12 +5,15 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createInterface } from "node:readline";
 import {
   EngineError,
+  engineErrorFrom,
   isContractError,
   type ContractError,
   type EngineAdapter,
   type EngineMeta,
   type FitRequest,
   type FitStats,
+  type PricesLoadResult,
+  withPricesFlag,
 } from "./types.js";
 
 type Pending = { resolve: (v: unknown) => void; reject: (e: Error) => void; timer: NodeJS.Timeout };
@@ -31,6 +34,20 @@ export class RpcWorker {
 
   constructor(private opts: RpcOptions) {
     this.timeoutMs = opts.timeoutMs ?? 60_000;
+  }
+
+  /** true while the engine process is up */
+  get running(): boolean {
+    return !!this.proc && this.proc.exitCode === null && !this.proc.killed;
+  }
+
+  /** argv for the next (re)start (e.g. with `--prices FILE`); a running process keeps its argv */
+  setArgv(argv: string[]): void {
+    this.opts = { ...this.opts, argv };
+  }
+
+  get argv(): string[] {
+    return this.opts.argv;
   }
 
   get inflight(): number {
@@ -68,10 +85,12 @@ export class RpcWorker {
       clearTimeout(pend.timer);
       if (msg.error !== undefined) {
         const e = msg.error as any;
-        pend.reject(new EngineError(e?.code ?? "ENGINE_ERROR", e?.message ?? String(e), e?.path));
+        pend.reject(engineErrorFrom(e));
       } else pend.resolve(msg.result);
     });
     p.on("exit", (code, sig) => {
+      // a process replaced after close() must not fail the new process's requests
+      if (this.proc && this.proc !== p) return;
       if (this.proc === p) this.proc = undefined;
       this.failAll(
         new EngineError("ENGINE_EXIT", `engine exited (${code ?? sig}): ${this.stderrTail.trim().slice(-800)}`),
@@ -112,7 +131,7 @@ export class RpcWorker {
 }
 
 function unwrap<T>(v: unknown): T {
-  if (isContractError(v)) throw new EngineError(v.error.code, v.error.message, v.error.path);
+  if (isContractError(v)) throw engineErrorFrom(v.error);
   return v as T;
 }
 
@@ -139,7 +158,7 @@ export class RpcAdapter implements EngineAdapter {
     return Promise.all(
       reqs.map((r, i) =>
         this.workers[i % this.workers.length].call<FitStats>("calc", r).catch(
-          (e: any): ContractError => ({ error: { code: e?.code ?? "ENGINE_ERROR", message: String(e?.message ?? e) } }),
+          (e: any): ContractError => ({ error: { ...(e?.details ?? {}), code: e?.code ?? "ENGINE_ERROR", message: String(e?.message ?? e), ...(e?.path ? { path: e.path } : {}) } }),
         ),
       ),
     );
@@ -162,6 +181,31 @@ export class RpcAdapter implements EngineAdapter {
 
   async call<T = unknown>(method: string, params: unknown): Promise<T> {
     return unwrap<T>(await this.pick().call(method, params));
+  }
+
+  private pricesPath: string | null = null;
+
+  /** Injected price file for every worker: running ones load it now (RPC `prices_load`), restarts get `--prices FILE`.
+   *  On an error (bad file) nothing changes: workers that had already loaded it go back to the previous file. */
+  async setPrices(path: string | null): Promise<PricesLoadResult> {
+    const prev = this.pricesPath;
+    const params = (p: string | null) => (p ? { path: p } : { clear: true });
+    const loaded: RpcWorker[] = [];
+    let first: PricesLoadResult | null = null;
+    try {
+      for (const [i, w] of this.workers.entries()) {
+        if (!w.running && i !== 0) continue; // stopped workers pick the file up from argv when they start
+        const r = unwrap<PricesLoadResult>(await w.call("prices_load", params(path)));
+        loaded.push(w);
+        first ??= r;
+      }
+    } catch (e) {
+      await Promise.all(loaded.map((w) => w.call("prices_load", params(prev)).catch(() => w.close())));
+      throw e;
+    }
+    for (const w of this.workers) w.setArgv(withPricesFlag(w.argv, path));
+    this.pricesPath = path;
+    return first ?? { ok: true };
   }
 
   async close(): Promise<void> {

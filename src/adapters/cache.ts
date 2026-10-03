@@ -1,7 +1,7 @@
 // Response cache in front of any adapter. Engines are pure functions of (dataset, request), so identical
 // requests (an agent re-asking, compare after compute, optimiser revisits) are answered from memory.
 import { createHash } from "node:crypto";
-import { isContractError, type ContractError, type EngineAdapter, type EngineMeta, type FitRequest, type FitStats } from "./types.js";
+import { EngineError, isContractError, type ContractError, type EngineAdapter, type EngineMeta, type FitRequest, type FitStats, type PricesLoadResult } from "./types.js";
 
 export class CachingAdapter implements EngineAdapter {
   private m = new Map<string, FitStats | ContractError>();
@@ -73,6 +73,14 @@ export class CachingAdapter implements EngineAdapter {
 
   call<T = unknown>(method: string, params: unknown): Promise<T> {
     return this.inner.call<T>(method, params);
+  }
+
+  /** New price data changes results: the cache is dropped. */
+  async setPrices(path: string | null): Promise<PricesLoadResult> {
+    if (!this.inner.setPrices) throw new EngineError("UNSUPPORTED", `the ${this.inner.kind} adapter cannot load price files`);
+    const r = await this.inner.setPrices(path);
+    this.m.clear();
+    return r;
   }
 
   close(): Promise<void> {

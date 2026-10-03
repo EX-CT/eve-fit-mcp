@@ -272,7 +272,7 @@ describe("graphs and passthrough features (engine)", { skip: !haveEngine && "eng
     assert.deepEqual(r.request.price_overrides, [{ type_id: 2873, price: 0 }, { category_id: 6, multiplier: 0.9 }]);
     assert.deepEqual(r.request.prices, { isk: { "587": 350000, "2873": 1250000 } });
     assert.equal(r.request.options.price, true);
-    if (r.price === undefined) return t.todo("engine without docs/23 prices (eve-dogma 2da8150): no price block yet");
+    if (r.price === undefined) return t.todo("engine without docs/23 prices (eve-dogma before 197223f): no price block yet");
     // engine semantics (docs/23 §5.2): gun fixed 0 (L2), ship 0.9 x injected 350000
     assert.equal(r.price.sections.ship.items[0].unit_isk, 315000);
     assert.equal(r.price.sections.modules.items[0].unit_isk, 0);
@@ -290,7 +290,7 @@ describe("graphs and passthrough features (engine)", { skip: !haveEngine && "eng
     if (r.isError) {
       // the error must carry the engine's code verbatim (UNKNOWN_METHOD on engines before docs/23)
       assert.match(r.content[0].text, /^Error: UNKNOWN_METHOD: the engine has no `batch` method/);
-      return t.todo("engine without docs/23 batch (eve-dogma 2da8150)");
+      return t.todo("engine without docs/23 batch (eve-dogma before 197223f)");
     }
     const b = r.structuredContent;
     assert.equal(b.form, "variants");
@@ -430,8 +430,8 @@ describe("graphs and passthrough features (engine)", { skip: !haveEngine && "eng
   });
 
   // Pyfa effect 6871 concordSecStatusTankBonus (Pacifier/Enforcer/Marshal): +10% armor repair per point of security status (0..5).
-  // Engine F 2da8150 does not implement it yet; reported as TODO, not a pass.
-  test("mcp.features.security-status-value: a security-status-dependent value changes (CONCORD armor repair bonus)", { todo: "engine F (eve-dogma 2da8150) lacks Pyfa effect 6871 concordSecStatusTankBonus" }, async () => {
+  // Engine F (197223f) does not implement it yet; reported as TODO, not a pass.
+  test("mcp.features.security-status-value: a security-status-dependent value changes (CONCORD armor repair bonus)", { todo: "engine F (eve-dogma 197223f) lacks Pyfa effect 6871 concordSecStatusTankBonus" }, async () => {
     const at = async (sec: number) =>
       (await call(c, "compute_fit", { fit: { ship: "Pacifier", modules: ["Small Armor Repairer II"], character: { security_status: sec } }, skills: 5, detail: "full", sections: ["defense"] })).defense.tank.raw.armor_repair;
     const r0 = await at(0);

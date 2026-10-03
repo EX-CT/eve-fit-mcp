@@ -86,7 +86,7 @@ straight from the release.
 
    ```bash
    EVE_DOGMA_DATASET=/path/to/dataset.json.gz cargo install --locked \
-     --git https://github.com/EX-CT/eve-dogma --rev 2da81501b85dfa216857a2e7a5c59043dadc5937 eve-cli   # installs eve-fit
+     --git https://github.com/EX-CT/eve-dogma --rev 197223f2837b9f42648b5afedc1a4e6a7feb2d06 eve-cli   # installs eve-fit
    ```
 
    Any other contract engine works through `EVE_DOGMA_BIN`, e.g. eve-dogma-rs (variant A, frozen):

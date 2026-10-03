@@ -11,8 +11,11 @@
 # `outgoing` (remote repair / cap transfer, current + spool min/max), `bombing`, `modules[].heat`,
 # `drones.items[]`/`fighters.items[]` hp/ehp, `targeting.probe_size`, full Pyfa validity codes (CHARGE_*,
 # MISSING_SKILL with skill_type_id/level, MAX_TYPE_FITTED, ...) and `options.validate:false`.
+# 197223f (eve-dogma main, CI green): docs/23 batch API (RPC `batch`) + engine prices (`price_overrides`, `prices`,
+# `price` block); effects 2378/2378 (1ebaa1f); dataset r5 tables (d55fadb). Calc output unchanged without price inputs.
+# MCP compute_batch / price passthrough / price_fit engine path are checked for real on it (CI fails on their TODO).
 VARIANT_F_REPO=EX-CT/eve-dogma
-VARIANT_F_SHA=2da81501b85dfa216857a2e7a5c59043dadc5937
+VARIANT_F_SHA=197223f2837b9f42648b5afedc1a4e6a7feb2d06
 VARIANT_F_PACKAGE=eve-cli
 # Bench cases replayed through the MCP by tools/mcp-dogma-bench.py in CI (compute_fit detail:"full" vs expected):
 # EX-CT/eve-dogma-bench pending-1.11 (core cases/, ext/, effects/ suites; inventory/mcp-web-gaps.md) and the cap-suite

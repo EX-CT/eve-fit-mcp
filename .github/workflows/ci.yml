@@ -57,6 +57,7 @@ jobs:
           npm test 2>&1 | tee test.log
           grep -q '^# fail 0' test.log
           if grep -qE 'SKIP (engine|dataset)|engine or dataset missing|dataset missing' test.log; then echo "engine/dataset suites skipped"; exit 1; fi
+          if grep -q 'TODO engine without docs/23' test.log; then echo "pinned engine has docs/23 batch + prices: those checks must run"; exit 1; fi
           grep -E '^# (tests|pass|fail|skipped)' test.log >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }

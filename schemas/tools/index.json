@@ -72,7 +72,7 @@
   {
     "name": "compute_fit",
     "title": "Compute fit stats",
-    "description": "Full Pyfa-parity statistics for a fit: DPS/volley (per weapon, drones, fighters, applied vs a target profile), EHP/resists/tank, capacitor simulation, speed/align/signature/warp, targeting, resources and violations. detail=summary (default) returns a compact view + named metrics; detail=full returns the engine output (optionally only `sections`).",
+    "description": "Full Pyfa-parity statistics for a fit: DPS/volley (per weapon, drones, fighters, applied vs a target profile), EHP/resists/tank, capacitor simulation, speed/align/signature/warp, targeting (incl. probe size), mining yield, outgoing remote repair / cap transfer (with spool range), bombs needed to kill the fit, overheat burnout per module, resources and validity (violations with fix hints; options.validate=false skips the checks). Illegal fits are still computed in full. detail=summary (default) returns a compact view + named metrics; detail=full returns the engine output (optionally only `sections`).",
     "annotations": {
       "readOnlyHint": true,
       "idempotentHint": true,

@@ -293,13 +293,13 @@ export function createServer(ctx: ServerDeps): McpServer {
     {
       title: "Compute fit stats",
       description:
-        "Full Pyfa-parity statistics for a fit: DPS/volley (per weapon, drones, fighters, applied vs a target profile), EHP/resists/tank, capacitor simulation, speed/align/signature/warp, targeting, resources and violations. detail=summary (default) returns a compact view + named metrics; detail=full returns the engine output (optionally only `sections`).",
+        "Full Pyfa-parity statistics for a fit: DPS/volley (per weapon, drones, fighters, applied vs a target profile), EHP/resists/tank, capacitor simulation, speed/align/signature/warp, targeting (incl. probe size), mining yield, outgoing remote repair / cap transfer (with spool range), bombs needed to kill the fit, overheat burnout per module, resources and validity (violations with fix hints; options.validate=false skips the checks). Illegal fits are still computed in full. detail=summary (default) returns a compact view + named metrics; detail=full returns the engine output (optionally only `sections`).",
       inputSchema: {
         ...fitInputShape,
         detail: z.enum(["summary", "full"]).optional(),
         sections: z.array(z.enum(SECTIONS)).optional().describe("with detail=full: only these top-level sections"),
         include_request: z.boolean().optional().describe("echo the normalised FitRequest"),
-        options: z.record(z.string(), z.any()).optional().describe("engine options merged into the request (factor_reload, rah, include_attributes, cap_sim…)"),
+        options: z.record(z.string(), z.any()).optional().describe("engine options merged into the request (factor_reload, default_spool, rah, validate, include_attributes, cap_sim…)"),
       },
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
     },

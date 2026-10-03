@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "compute_fit",
-  "description": "Full Pyfa-parity statistics for a fit: DPS/volley (per weapon, drones, fighters, applied vs a target profile), EHP/resists/tank, capacitor simulation, speed/align/signature/warp, targeting, resources and violations. detail=summary (default) returns a compact view + named metrics; detail=full returns the engine output (optionally only `sections`).",
+  "description": "Full Pyfa-parity statistics for a fit: DPS/volley (per weapon, drones, fighters, applied vs a target profile), EHP/resists/tank, capacitor simulation, speed/align/signature/warp, targeting (incl. probe size), mining yield, outgoing remote repair / cap transfer (with spool range), bombs needed to kill the fit, overheat burnout per module, resources and validity (violations with fix hints; options.validate=false skips the checks). Illegal fits are still computed in full. detail=summary (default) returns a compact view + named metrics; detail=full returns the engine output (optionally only `sections`).",
   "type": "object",
   "properties": {
     "fit": {
@@ -179,18 +179,32 @@
                     ]
                   },
                   "mutation": {
-                    "type": "object",
-                    "propertyNames": {
-                      "type": "string"
-                    },
-                    "additionalProperties": {}
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {}
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   },
                   "spool": {
-                    "type": "object",
-                    "propertyNames": {
-                      "type": "string"
-                    },
-                    "additionalProperties": {}
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {}
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "additionalProperties": {}
@@ -322,7 +336,8 @@
                       "maximum": 9007199254740991
                     }
                   }
-                }
+                },
+                "additionalProperties": {}
               }
             ]
           }
@@ -553,6 +568,10 @@
           "navigation",
           "targeting",
           "drones",
+          "fighters",
+          "mining",
+          "outgoing",
+          "bombing",
           "violations",
           "warnings",
           "attributes"
@@ -564,7 +583,7 @@
       "type": "boolean"
     },
     "options": {
-      "description": "engine options merged into the request (factor_reload, rah, include_attributes, cap_sim…)",
+      "description": "engine options merged into the request (factor_reload, default_spool, rah, validate, include_attributes, cap_sim…)",
       "type": "object",
       "propertyNames": {
         "type": "string"

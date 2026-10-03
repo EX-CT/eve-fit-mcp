@@ -105,6 +105,40 @@ export const METRICS: Metric[] = [
   { key: "cpu_free", label: "CPU left", unit: "tf", better: 1, group: "fitting", get: free("cpu") },
   { key: "power_free", label: "Powergrid left", unit: "MW", better: 1, group: "fitting", get: free("power") },
   { key: "calibration_free", label: "Calibration left", unit: "", better: 1, group: "fitting", get: free("calibration") },
+  { key: "probe_size", label: "Probe size (sig / sensor strength)", unit: "", better: -1, group: "targeting", get: P("targeting.probe_size") },
+  { key: "mining_yield", label: "Mining yield (modules + drones)", unit: "m3/s", better: 1, group: "mining", get: P("mining.total_m3_s") },
+  { key: "mining_modules", label: "Mining yield (modules)", unit: "m3/s", better: 1, group: "mining", get: P("mining.modules_m3_s") },
+  { key: "mining_drones", label: "Mining yield (drones)", unit: "m3/s", better: 1, group: "mining", get: P("mining.drones_m3_s") },
+  { key: "remote_rep", label: "Outgoing remote repair (shield+armor+hull)", unit: "HP/s", better: 1, group: "remote", get: (s: any) => sum(s.outgoing?.current, ["shield_per_s", "armor_per_s", "hull_per_s"]) },
+  { key: "remote_shield_rep", label: "Outgoing remote shield repair", unit: "HP/s", better: 1, group: "remote", get: P("outgoing.current.shield_per_s") },
+  { key: "remote_armor_rep", label: "Outgoing remote armor repair", unit: "HP/s", better: 1, group: "remote", get: P("outgoing.current.armor_per_s") },
+  { key: "remote_hull_rep", label: "Outgoing remote hull repair", unit: "HP/s", better: 1, group: "remote", get: P("outgoing.current.hull_per_s") },
+  { key: "remote_rep_spooled", label: "Outgoing remote repair at full spool", unit: "HP/s", better: 1, group: "remote", get: (s: any) => sum(s.outgoing?.spool_max, ["shield_per_s", "armor_per_s", "hull_per_s"]) },
+  { key: "cap_transfer", label: "Outgoing capacitor transfer", unit: "GJ/s", better: 1, group: "remote", get: P("outgoing.current.capacitor_per_s") },
+  {
+    key: "bombs_to_kill",
+    label: "Fewest bombs to kill (best bomb type, Covert Ops V)",
+    unit: "bombs",
+    better: 1,
+    group: "defense",
+    get: (s: any) => {
+      const b = s.bombing;
+      if (!b) return null;
+      const v = ["em", "thermal", "kinetic", "explosive"].map((k) => num(b[k]?.covert_ops_5)).filter((x): x is number => x !== null);
+      return v.length ? Math.min(...v) : null;
+    },
+  },
+  {
+    key: "heat_burnout_s",
+    label: "First overheated module burns out after",
+    unit: "s",
+    better: 1,
+    group: "heat",
+    get: (s: any) => {
+      const v = ((s.modules ?? []) as any[]).map((m) => num(m?.heat?.burnout_s)).filter((x): x is number => x !== null);
+      return v.length ? Math.min(...v) : null;
+    },
+  },
   { key: "drone_control_range", label: "Drone control range", unit: "m", better: 1, group: "drones", get: P("drones.control_range_m") },
   { key: "violations", label: "Fitting violations", unit: "", better: -1, group: "fitting", get: (s: any) => (Array.isArray(s.violations) ? s.violations.length : 0) },
 ];

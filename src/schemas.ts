@@ -18,8 +18,8 @@ export const ModuleSpec = z.union([
       state: State.optional().describe("default: active for activatable modules, else online"),
       charge_type_id: z.number().int().nullable().optional(),
       charge: TypeRef.optional().describe("charge id or name"),
-      mutation: z.record(z.string(), z.any()).optional(),
-      spool: z.record(z.string(), z.any()).optional(),
+      mutation: z.record(z.string(), z.any()).nullable().optional(),
+      spool: z.record(z.string(), z.any()).nullable().optional(),
     })
     .passthrough(),
 ]);
@@ -40,7 +40,7 @@ export const FitRequestLenient = z
     drones: z.array(QtySpec).optional(),
     fighters: z.array(QtySpec).optional(),
     implants: z.array(TypeRef).optional(),
-    boosters: z.array(z.union([TypeRef, z.object({ type_id: z.number().int().optional(), name: z.string().optional(), side_effects: z.array(z.number().int()).optional() })])).optional(),
+    boosters: z.array(z.union([TypeRef, z.object({ type_id: z.number().int().optional(), name: z.string().optional(), side_effects: z.array(z.number().int()).optional() }).passthrough()])).optional(),
     cargo: z.array(QtySpec).optional(),
     fleet: z.record(z.string(), z.any()).optional().describe("{buffs:[{buff_id,value}], booster_fits:[FitRequest]}"),
     projected: z.array(z.record(z.string(), z.any())).optional().describe('[{kind:"module"|"drone"|"fighter"|"fit", module|drone|fighter|fit, amount, distance_m}]'),

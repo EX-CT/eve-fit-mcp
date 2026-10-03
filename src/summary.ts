@@ -3,7 +3,7 @@ import type { FitRequest, FitStats } from "./adapters/types.js";
 import type { Dataset } from "./dataset.js";
 import { METRICS, round } from "./metrics.js";
 
-export const SECTIONS = ["meta", "ship", "resources", "modules", "offense", "defense", "capacitor", "navigation", "targeting", "drones", "violations", "warnings", "attributes"] as const;
+export const SECTIONS = ["meta", "ship", "resources", "modules", "offense", "defense", "capacitor", "navigation", "targeting", "drones", "fighters", "mining", "outgoing", "bombing", "violations", "warnings", "attributes"] as const;
 
 const r1 = (v: unknown, d = 2) => (typeof v === "number" && Number.isFinite(v) ? round(v, d) : v ?? null);
 const pct = (res: any) =>
@@ -15,11 +15,12 @@ export function describeViolations(ds: Dataset, req: FitRequest, stats: FitStats
   return ((stats as any).violations ?? []).map((v: any) => {
     const m = v.module_index !== null && v.module_index !== undefined ? mods[v.module_index] : undefined;
     const t = m ? ds.type(m.type_id) : undefined;
-    return { ...v, module: t?.name ?? null, hint: hintFor(v.code, t?.name, t?.slot) };
+    const skill = typeof v.skill_type_id === "number" ? ds.type(v.skill_type_id)?.name ?? null : undefined;
+    return { ...v, module: t?.name ?? null, ...(skill !== undefined ? { skill } : {}), hint: hintFor(v.code, t?.name, t?.slot, skill ?? undefined, v.level) };
   });
 }
 
-function hintFor(code: string, name?: string, slot?: string | null): string | undefined {
+function hintFor(code: string, name?: string, slot?: string | null, skill?: string, level?: number): string | undefined {
   switch (code) {
     case "CPU_OVERLOAD":
       return "drop or downgrade a CPU-heavy module, or fit a Co-Processor / CPU rig";
@@ -40,7 +41,13 @@ function hintFor(code: string, name?: string, slot?: string | null): string | un
     case "DRONE_BANDWIDTH":
       return "lower the active drone count or use smaller drones";
     case "MISSING_SKILL":
-      return "skill_requirements lists what to train";
+      return skill ? `train ${skill}${level ? ` to ${level}` : ""} (skill_requirements lists the whole plan)` : "skill_requirements lists what to train";
+    case "MAX_GROUP_FITTED":
+    case "MAX_TYPE_FITTED":
+      return `only a limited number of ${name ?? "this module"} can be fitted; remove the extra ones`;
+    case "MAX_GROUP_ONLINE":
+    case "MAX_GROUP_ACTIVE":
+      return `only one module of this group can be ${code === "MAX_GROUP_ONLINE" ? "online" : "active"} at a time; set the others offline/online`;
     case "CHARGE_GROUP":
     case "CHARGE_SIZE":
     case "CHARGE_CAPACITY":
@@ -94,6 +101,7 @@ export function summarize(ds: Dataset, req: FitRequest, s: FitStats) {
       : null,
     capacitor: {
       capacity_gj: r1(cap.capacity),
+      recharge_time_s: r1(cap.recharge_time_s),
       stable: cap.stable ?? null,
       stable_percent: r1(cap.stable_percent, 1),
       depletes_in_s: r1(cap.depletes_in_s, 0),
@@ -106,7 +114,10 @@ export function summarize(ds: Dataset, req: FitRequest, s: FitStats) {
           max_velocity: r1(st.navigation.max_velocity, 1),
           align_time_s: r1(st.navigation.align_time_s),
           signature_radius: r1(st.navigation.signature_radius, 1),
+          agility: r1(st.navigation.agility, 4),
+          mass_kg: r1(st.navigation.mass, 0),
           warp_speed_au_s: r1(st.navigation.warp_speed_au_s),
+          max_warp_distance_au: r1(st.navigation.max_warp_distance_au, 1),
           warp_scramble_status: st.navigation.warp_scramble_status,
         }
       : null,
@@ -116,6 +127,8 @@ export function summarize(ds: Dataset, req: FitRequest, s: FitStats) {
           scan_resolution: r1(st.targeting.scan_resolution, 1),
           max_targets: st.targeting.max_targets,
           sensor: `${r1(st.targeting.sensor_strength)} ${st.targeting.sensor_type ?? ""}`.trim(),
+          probe_size: r1(st.targeting.probe_size, 3),
+          lock_time_s: st.targeting.lock_time_s ? Object.fromEntries(Object.entries<any>(st.targeting.lock_time_s).filter(([, v]) => v !== null).map(([k, v]) => [k, r1(v)])) : null,
         }
       : null,
     fitting: st.resources
@@ -128,10 +141,55 @@ export function summarize(ds: Dataset, req: FitRequest, s: FitStats) {
           hardpoints: Object.fromEntries(Object.entries<any>(st.resources.hardpoints ?? {}).map(([k, v]) => [k, ur(v)])),
         }
       : null,
+    mining: miningSummary(st.mining),
+    remote_repair: outgoingSummary(st.outgoing),
+    bombing: bombingSummary(st.bombing),
+    heat: heatSummary(st.modules),
+    validation: {
+      validated: (req as any).options?.validate !== false,
+      valid: !(st.violations ?? []).length,
+      codes: [...new Set<string>((st.violations ?? []).map((v: any) => v.code))].sort(),
+    },
     violations: describeViolations(ds, req, s),
     warnings: st.warnings ?? [],
     metrics,
   };
+}
+
+const nz = (o: any) => !!o && Object.values<any>(o).some((v) => typeof v === "number" && Math.abs(v) > 1e-9);
+const rd = (o: any, d = 2) => (o ? Object.fromEntries(Object.entries<any>(o).map(([k, v]) => [k, r1(v, d)])) : null);
+
+/** Ore/ice/gas yield (engine `mining`); null when the fit mines nothing. */
+export function miningSummary(m: any) {
+  if (!nz(m)) return null;
+  return {
+    total_m3_s: r1(m.total_m3_s, 3),
+    modules_m3_s: r1(m.modules_m3_s, 3),
+    drones_m3_s: r1(m.drones_m3_s, 3),
+    m3_per_hour: r1((m.total_m3_s ?? 0) * 3600, 0),
+    drain_m3_s: r1((m.modules_drain_m3_s ?? 0) + (m.drones_drain_m3_s ?? 0), 3),
+  };
+}
+
+/** Outgoing remote repair / cap transfer (engine `outgoing`); null when the fit repairs nothing. */
+export function outgoingSummary(o: any) {
+  if (!o || !(nz(o.current) || nz(o.spool_max))) return null;
+  const spooled = JSON.stringify(o.spool_min) !== JSON.stringify(o.spool_max);
+  return { ...rd(o.current, 1), ...(spooled ? { spool_min: rd(o.spool_min, 1), spool_max: rd(o.spool_max, 1) } : {}) };
+}
+
+/** Bombs needed to kill the fit, per bomb damage type, at Covert Ops 0 and V (engine `bombing`). */
+export function bombingSummary(b: any) {
+  if (!b) return null;
+  const at = (lvl: number) => Object.fromEntries(["em", "thermal", "kinetic", "explosive"].map((k) => [k, b[k]?.[`covert_ops_${lvl}`] ?? null]));
+  return { covert_ops_5: at(5), covert_ops_0: at(0) };
+}
+
+/** Overheated modules with cycles / seconds until burnout (engine `modules[].heat`). */
+export function heatSummary(mods: any[] | undefined) {
+  const hot = (mods ?? []).filter((m) => m?.heat);
+  if (!hot.length) return null;
+  return hot.map((m) => ({ module_index: m.module_index, name: m.name, burn_cycles: m.heat.burn_cycles, burnout_s: r1(m.heat.burnout_s, 1) }));
 }
 
 export function pickSections(s: FitStats, sections: string[]) {

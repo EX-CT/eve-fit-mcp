@@ -186,27 +186,31 @@ export function resolveRequest(ctx: Ctx, fit: any, notes: string[], depth = 0, w
     const { t, quantity } = resolveQty(ds, c, [], `${where}/cargo/${i}`);
     return { type_id: t.id, quantity };
   });
-  if (req.projected) {
+  if (Array.isArray(req.projected) && req.projected.length) {
     req.projected = req.projected.map((p: any, i: number) => {
       const w = `${where}/projected/${i}`;
       const o = { ...p };
       if (p.kind === "fit") {
         if (depth >= 1) throw new Error(`${w}: projected fits cannot nest`);
+        if (!p.fit || typeof p.fit !== "object") throw new Error(`${w}/fit: expected a FitRequest`);
         o.fit = resolveRequest(ctx, p.fit, notes, depth + 1, `${w}/fit`);
         ensureSkills(o.fit, ctx, undefined, []);
       } else if (p.kind === "module") o.module = resolveModule(ds, p.module, notes, `${w}/module`);
       else if (p.kind === "drone") {
-        const { t, quantity } = resolveQty(ds, p.drone, ["drone"], `${w}/drone`);
-        o.drone = { type_id: t.id, quantity };
+        const { t, quantity, spec } = resolveQty(ds, p.drone, ["drone"], `${w}/drone`);
+        o.drone = { ...spec, type_id: t.id, quantity };
+        delete o.drone.name;
       } else if (p.kind === "fighter") {
         const { t, quantity, spec } = resolveQty(ds, p.fighter, ["fighter"], `${w}/fighter`);
-        o.fighter = { ...spec, type_id: t.id, quantity: spec.quantity ?? quantity };
+        // no quantity on an object = engine default (full squadron, Pyfa); only "Name xN" strings set one
+        o.fighter = { ...spec, type_id: t.id };
+        if (typeof p.fighter !== "object" || spec.quantity !== undefined) o.fighter.quantity = spec.quantity ?? quantity;
         delete o.fighter.name;
       }
       return o;
     });
   }
-  if (req.fleet?.booster_fits) {
+  if (Array.isArray(req.fleet?.booster_fits) && req.fleet.booster_fits.length) {
     if (depth >= 1) throw new Error(`${where}/fleet/booster_fits: booster fits cannot nest`);
     req.fleet.booster_fits = req.fleet.booster_fits.map((b: any, i: number) => {
       const r = resolveRequest(ctx, b, notes, depth + 1, `${where}/fleet/booster_fits/${i}`);

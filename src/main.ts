@@ -5,7 +5,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { createServer as createHttpServer, type IncomingMessage } from "node:http";
 import { checkConfig, createAdapter, ENV_DOC, loadConfig } from "./config.js";
 import { Dataset } from "./dataset.js";
-import { createServer, VERSION } from "./server.js";
+import { createServer, loadPriceFile, VERSION, type ServerDeps } from "./server.js";
 
 function arg(name: string): string | undefined {
   const i = process.argv.indexOf(name);
@@ -48,7 +48,21 @@ async function main() {
   const ds = new Dataset(cfg.dataset);
   log(`dataset ${cfg.dataset}: ${ds.types.size} types, sde ${ds.sdeBuild}, indexed in ${Math.round(ds.loadMs)} ms`);
   const engine = createAdapter(cfg);
-  const ctx = { ds, engine, defaultSkillLevel: cfg.defaultSkillLevel, maxBatch: cfg.maxBatch };
+  const ctx: ServerDeps = { ds, engine, defaultSkillLevel: cfg.defaultSkillLevel, maxBatch: cfg.maxBatch };
+  // EVE_FIT_PRICES: injected price file (path, URL or `latest`) loaded into the engine before serving. An explicit
+  // path / URL that fails is fatal; `latest` without network and cache only warns (the embedded snapshot applies).
+  if (process.env.EVE_FIT_PRICES) {
+    try {
+      const f = await loadPriceFile(ctx, process.env.EVE_FIT_PRICES);
+      log(`prices: ${f!.path} (${f!.origin}${f!.release ? ` ${f!.release}` : ""}): ${f!.engine.types ?? "?"} types, snapshot ${f!.engine.price_snapshot_id ?? "-"}`);
+    } catch (e: any) {
+      if (process.env.EVE_FIT_PRICES.trim() !== "latest") {
+        log(`ERROR: EVE_FIT_PRICES=${process.env.EVE_FIT_PRICES}: ${e?.code ? e.code + ": " : ""}${e?.message ?? e}`);
+        process.exit(2);
+      }
+      log(`WARNING: EVE_FIT_PRICES=latest: ${e?.message ?? e}; the engine's embedded snapshot applies`);
+    }
+  }
   // fail fast if the engine cannot start, and warn when it uses a different dataset than the index
   engine
     .meta()

@@ -16,6 +16,8 @@ import { DAMAGE_PROFILES, implantSets, SKILL_PRESETS, TARGET_PROFILES, targetPro
 import { describeGraphs, graphSpecs, pickAxes, sampleX, summarizeSeries, TARGET_GRAPHS } from "./graphs.js";
 import { browseMarket, typeMarket, typeRow } from "./market.js";
 import { fitItems, HUBS, PriceService, priceConfig, SOURCES } from "./prices.js";
+import { resolvePriceFile, type ResolvedPriceFile } from "./price-file.js";
+import type { PricesLoadResult } from "./adapters/types.js";
 import { Change, Constraints, fitInputShape, FitInputObject, FitRequestLenient, GoalSpec, priceInputShape, z } from "./schemas.js";
 import { applyPriceInputs } from "./pricing-input.js";
 import { batchTable, prepareBatch } from "./batch.js";
@@ -33,7 +35,7 @@ function readAsset(rel: string): string {
   return "{}";
 }
 
-type ToolResult = { content: { type: "text"; text: string }[]; structuredContent?: Record<string, unknown>; isError?: boolean };
+type ToolResult = { content: { type: "text"; text: string }[]; structuredContent?: Record<string, unknown>; isError?: boolean; _meta?: Record<string, unknown> };
 
 function ok(data: unknown, text?: string): ToolResult {
   const json = JSON.stringify(data);
@@ -46,9 +48,13 @@ function ok(data: unknown, text?: string): ToolResult {
 function fail(e: unknown): ToolResult {
   const err: any = e;
   // engine errors keep their contract code verbatim; the MCP's own input errors are BAD_REQUEST (contract codes only)
-  const code = `${err?.code && typeof err.code === "string" && /^[A-Z][A-Z0-9_]+$/.test(err.code) ? err.code : "BAD_REQUEST"}: `;
+  const c = err?.code && typeof err.code === "string" && /^[A-Z][A-Z0-9_]+$/.test(err.code) ? err.code : "BAD_REQUEST";
   const path = err?.path ? ` (at ${err.path})` : "";
-  return { content: [{ type: "text", text: `Error: ${code}${err?.message ?? String(e)}${path}` }], isError: true };
+  const details: Record<string, unknown> | undefined = err?.details && typeof err.details === "object" ? err.details : undefined;
+  const extra = details ? ` ${JSON.stringify(details)}` : "";
+  // the structured form is the engine's error object (code, message, path and its other fields such as count / limit)
+  const error = { ...(details ?? {}), code: c, message: String(err?.message ?? e), ...(err?.path ? { path: err.path } : {}) };
+  return { content: [{ type: "text", text: `Error: ${c}: ${err?.message ?? String(e)}${path}${extra}` }], structuredContent: { error }, isError: true };
 }
 
 function wrap<A>(fn: (a: A, extra?: any) => Promise<ToolResult>) {
@@ -78,6 +84,30 @@ export interface ServerDeps extends Ctx {
   engineMetaNote?: string;
   /** market prices (default: from the environment, see prices.ts) */
   prices?: PriceService;
+  /** injected price file currently loaded into the engine (load_prices / EVE_FIT_PRICES); shared by all sessions */
+  priceFile?: LoadedPriceFile | null;
+}
+
+export interface LoadedPriceFile extends ResolvedPriceFile {
+  /** the engine's prices_load answer */
+  engine: PricesLoadResult;
+  loaded_at: string;
+}
+
+/** Load (spec) or clear (null) the engine's injected price file (docs/23 §5.3 file layer). Used by load_prices and at
+ *  startup for EVE_FIT_PRICES. */
+export async function loadPriceFile(ctx: ServerDeps, spec: string | null, env: NodeJS.ProcessEnv = process.env): Promise<LoadedPriceFile | null> {
+  if (!ctx.engine.setPrices) throw codedError("UNSUPPORTED", `the ${ctx.engine.kind} engine adapter cannot load price files`);
+  if (spec === null) {
+    await ctx.engine.setPrices(null);
+    ctx.priceFile = null;
+    return null;
+  }
+  const pc = priceConfig(env);
+  const f = await resolvePriceFile(spec, { cacheDir: pc.cacheDir, offline: pc.offline, userAgent: pc.userAgent, repo: env.EVE_FIT_PRICES_REPO, apiBase: env.EVE_FIT_GITHUB_API });
+  const engine = await ctx.engine.setPrices(f.path);
+  ctx.priceFile = { ...f, engine, loaded_at: new Date().toISOString() };
+  return ctx.priceFile;
 }
 
 export function createServer(ctx: ServerDeps): McpServer {
@@ -316,7 +346,16 @@ export function createServer(ctx: ServerDeps): McpServer {
       const s = await calc(n.request);
       const body: Record<string, unknown> =
         a.detail === "full" ? (a.sections?.length ? pickSections(s, a.sections) : s) : summarize(ds, n.request, s);
-      const out: Record<string, unknown> = { ...body, request_hash: n.hash, notes: n.notes, engine: (s as any).meta?.engine };
+      const mcp = { request_hash: n.hash, notes: n.notes, engine: (s as any).meta?.engine };
+      if (a.detail === "full") {
+        // detail=full is the engine's calc output unchanged (identical to a compute_batch result's stats, docs/23);
+        // the MCP's own fields go to the result `_meta` (and the notes into a text line), never into the stats
+        const out: Record<string, unknown> = a.include_request ? { ...body, request: n.request } : body;
+        const r: ToolResult = ok(out, n.notes.length ? `notes: ${n.notes.join("; ")}` : undefined);
+        r._meta = { "eve-fit-mcp": mcp };
+        return r;
+      }
+      const out: Record<string, unknown> = { ...body, ...mcp };
       if (a.include_request) out.request = n.request;
       return ok(out);
     }),
@@ -1010,6 +1049,30 @@ export function createServer(ctx: ServerDeps): McpServer {
         },
         text,
       );
+    }),
+  );
+
+  server.registerTool(
+    "load_prices",
+    {
+      title: "Load / update engine price data",
+      description:
+        "Load a price file into the engine as injected prices (docs/23 file layer, like the engine's `--prices FILE`): an eve-price-snapshot v1 (EX-CT/eve-market-prices) or a plain {type_id: isk} map, from a local path, an http(s) URL, or `latest` = download the newest EX-CT/eve-market-prices snapshot release (update prices). Precedence: request price_overrides > request prices.isk > this file > the engine's embedded snapshot. Results then report provenance.price_source = file with the file's snapshot time. `clear: true` goes back to the embedded snapshot; no arguments shows what is loaded. Applies to every later engine call (all sessions).",
+      inputSchema: {
+        source: z.string().optional().describe("path, http(s) URL, or `latest` (newest eve-market-prices release)"),
+        clear: z.boolean().optional().describe("drop the loaded file (embedded snapshot again)"),
+      },
+      annotations: { readOnlyHint: false, idempotentHint: true, openWorldHint: true },
+    },
+    wrap(async (a) => {
+      if (a.clear && a.source) throw codedError("BAD_REQUEST", "give source or clear, not both");
+      if (a.clear) {
+        await loadPriceFile(ctx, null);
+        return ok({ loaded: null, note: "injected price file cleared; the engine's embedded snapshot applies" }, "Price file cleared (embedded snapshot applies).");
+      }
+      if (!a.source) return ok({ loaded: ctx.priceFile ?? null }, ctx.priceFile ? `Loaded: ${ctx.priceFile.path} (${ctx.priceFile.engine.types ?? "?"} types, ${ctx.priceFile.engine.price_snapshot_id ?? "plain map"})` : "No price file loaded (embedded snapshot applies).");
+      const f = await loadPriceFile(ctx, a.source);
+      return ok({ loaded: f }, `Loaded ${f!.path}${f!.release ? ` (release ${f!.release}${f!.origin === "release-cache" ? ", cached" : ""})` : ""}: ${f!.engine.types ?? "?"} types, snapshot ${f!.engine.price_snapshot_id ?? "-"} ${f!.engine.snapshot_time ?? ""}${f!.engine.warnings?.length ? `; warnings: ${f!.engine.warnings.join("; ")}` : ""}`);
     }),
   );
 

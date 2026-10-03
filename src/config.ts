@@ -46,6 +46,8 @@ export const ENV_DOC: Record<string, string> = {
   EVE_FIT_PRICE_TTL_S: "price cache lifetime in seconds (default 3600; ESI uses its Expires header)",
   EVE_FIT_OFFLINE: "1 = never fetch prices; use the cache whatever its age (results say stale)",
   EVE_FIT_USER_AGENT: "User-Agent sent to ESI / Fuzzwork (default names this project; add your contact per ESI etiquette)",
+  EVE_FIT_PRICES: "injected price file loaded into the engine at start (docs/23 file layer, like `eve-fit --prices FILE`): path or http(s) URL of an eve-price-snapshot v1 / {type_id: isk} map, or `latest` (newest EX-CT/eve-market-prices release; cached under EVE_FIT_PRICE_CACHE/snapshots). Tool load_prices changes it at run time",
+  EVE_FIT_PRICES_REPO: "GitHub repo of the snapshot releases for `latest` (default EX-CT/eve-market-prices)",
   EVE_FIT_HTTP_HOST: "HTTP bind address for --http (default 127.0.0.1)",
   EVE_FIT_HTTP_PORT: "HTTP port for --http (default 8765)",
 };

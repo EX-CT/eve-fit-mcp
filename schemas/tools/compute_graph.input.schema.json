@@ -405,22 +405,7 @@
           "additionalProperties": {}
         },
         "damage_pattern": {
-          "anyOf": [
-            {
-              "type": "object",
-              "propertyNames": {
-                "type": "string"
-              },
-              "additionalProperties": {
-                "type": "number"
-              }
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "target_profile": {
+          "description": "{em,thermal,kinetic,explosive} or {builtin: name}",
           "anyOf": [
             {
               "type": "object",
@@ -430,6 +415,28 @@
               "additionalProperties": {
                 "type": [
                   "number",
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "target_profile": {
+          "description": "{signature_radius,max_velocity,em,…} or {builtin: name}",
+          "anyOf": [
+            {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {
+                "type": [
+                  "number",
+                  "string",
                   "null"
                 ]
               }
@@ -505,24 +512,7 @@
       ]
     },
     "damage_profile": {
-      "description": "incoming damage for EHP: preset name (list_presets) or {em,thermal,kinetic,explosive}",
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "object",
-          "propertyNames": {
-            "type": "string"
-          },
-          "additionalProperties": {
-            "type": "number"
-          }
-        }
-      ]
-    },
-    "target_profile": {
-      "description": "target for applied DPS: preset name or {signature_radius,max_velocity,em,…}",
+      "description": "incoming damage for EHP: preset name (list_presets), {em,thermal,kinetic,explosive} or the engine's {builtin: name}",
       "anyOf": [
         {
           "type": "string"
@@ -535,6 +525,27 @@
           "additionalProperties": {
             "type": [
               "number",
+              "string"
+            ]
+          }
+        }
+      ]
+    },
+    "target_profile": {
+      "description": "target for applied DPS: preset name, {signature_radius,max_velocity,em,…} or the engine's {builtin: name}",
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": [
+              "number",
+              "string",
               "null"
             ]
           }
@@ -1008,22 +1019,7 @@
               "additionalProperties": {}
             },
             "damage_pattern": {
-              "anyOf": [
-                {
-                  "type": "object",
-                  "propertyNames": {
-                    "type": "string"
-                  },
-                  "additionalProperties": {
-                    "type": "number"
-                  }
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "target_profile": {
+              "description": "{em,thermal,kinetic,explosive} or {builtin: name}",
               "anyOf": [
                 {
                   "type": "object",
@@ -1033,6 +1029,28 @@
                   "additionalProperties": {
                     "type": [
                       "number",
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "target_profile": {
+              "description": "{signature_radius,max_velocity,em,…} or {builtin: name}",
+              "anyOf": [
+                {
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string"
+                  },
+                  "additionalProperties": {
+                    "type": [
+                      "number",
+                      "string",
                       "null"
                     ]
                   }

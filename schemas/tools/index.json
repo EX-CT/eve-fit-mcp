@@ -238,5 +238,15 @@
       "idempotentHint": true,
       "openWorldHint": true
     }
+  },
+  {
+    "name": "load_prices",
+    "title": "Load / update engine price data",
+    "description": "Load a price file into the engine as injected prices (docs/23 file layer, like the engine's `--prices FILE`): an eve-price-snapshot v1 (EX-CT/eve-market-prices) or a plain {type_id: isk} map, from a local path, an http(s) URL, or `latest` = download the newest EX-CT/eve-market-prices snapshot release (update prices). Precedence: request price_overrides > request prices.isk > this file > the engine's embedded snapshot. Results then report provenance.price_source = file with the file's snapshot time. `clear: true` goes back to the embedded snapshot; no arguments shows what is loaded. Applies to every later engine call (all sessions).",
+    "annotations": {
+      "readOnlyHint": false,
+      "idempotentHint": true,
+      "openWorldHint": true
+    }
   }
 ]

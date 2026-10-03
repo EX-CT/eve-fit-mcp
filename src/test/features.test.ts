@@ -2,16 +2,17 @@
 // passthrough tests (mutations, overrides, projected, fleet, environment, fighters). Real server, real engine, real dataset;
 // prices against a local mock of ESI / Fuzzwork (no internet in tests).
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { gunzipSync, gzipSync } from "node:zlib";
 import { after, before, describe, test } from "node:test";
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { Dataset } from "../dataset.js";
 import { browseMarket, resolveGroup, variations } from "../market.js";
 import { fitItems, PriceService, priceConfig } from "../prices.js";
-import { call, callErr, connect, DATASET, haveEngine, RIFTER_EFT } from "./helpers.js";
+import { call, callErr, connect, DATASET, GO_BIN, haveEngine, RIFTER_EFT } from "./helpers.js";
 
 const ds = existsSync(DATASET) ? new Dataset(DATASET) : null;
 const hasMarket = !!ds && ds.marketGroups.size > 0;
@@ -239,13 +240,18 @@ describe("graphs and passthrough features (engine)", { skip: !haveEngine && "eng
     const b = await stats({});
     const web = await stats({ projected: [{ kind: "module", module: { type_id: 527, state: "active" }, amount: 1 }] });
     assert.equal(web.request.projected[0].module.type_id, 527);
-    assert.ok(web.navigation.max_velocity < b.navigation.max_velocity * 0.6, `${web.navigation.max_velocity} vs ${b.navigation.max_velocity}`);
-    const wr = [...ds!.types.values()].find((t) => /^Wolf-Rayet Effect Beacon Class 1$/.test(t.name));
-    if (wr) {
-      const env = await stats({ environment: { effect_type_ids: [wr.id] } });
-      assert.deepEqual(env.request.environment.effect_type_ids, [wr.id]);
-      assert.notDeepEqual(env.defense, b.defense, "WR beacon changes armor/resists");
-    }
+    // Stasis Webifier II, one module (no stacking penalty): -60% max velocity
+    assert.ok(Math.abs(web.navigation.max_velocity / b.navigation.max_velocity - 0.4) < 1e-6, `${web.navigation.max_velocity} vs ${b.navigation.max_velocity}`);
+    const wr = ds!.byExactName("Class 1 Wolf Rayet Effects");
+    assert.ok(wr, "the dataset has the Class 1 Wolf-Rayet effect beacon");
+    const env = await stats({ environment: { effect_type_ids: ["Class 1 Wolf Rayet Effects"] } });
+    assert.deepEqual(env.request.environment.effect_type_ids, [wr!.id]);
+    // beacon attributes: armorHPMultiplier 1.3, signatureRadiusMultiplier 0.85, smallWeaponDamageMultiplier 1.6
+    assert.equal(ds!.attr(wr!, "armorHPMultiplier"), 1.3);
+    assert.ok(Math.abs(env.defense.hp.armor / b.defense.hp.armor - 1.3) < 1e-9, `armor ${env.defense.hp.armor} vs ${b.defense.hp.armor}`);
+    assert.ok(Math.abs(env.navigation.signature_radius / b.navigation.signature_radius - 0.85) < 1e-9, `sig ${env.navigation.signature_radius}`);
+    assert.equal(env.defense.hp.hull, b.defense.hp.hull);
+    assert.ok(env.offense.total.weapon_dps > b.offense.total.weapon_dps * 1.5, "small weapon damage bonus");
   });
 
   test("mcp.features.fleet-overrides: fleet buffs and overrides", async () => {
@@ -266,13 +272,72 @@ describe("graphs and passthrough features (engine)", { skip: !haveEngine && "eng
       include_request: true,
     });
     assert.equal(mut.request.modules[0].mutation.base_type_id, 2048);
-    assert.notDeepEqual(mut.defense, plain.defense, "mutated hull resist");
-    const ftr = [...ds!.types.values()].find((t) => t.kind === "fighter" && t.published && /Templar II/.test(t.name));
-    if (ftr) {
-      const r = await call(c, "compute_fit", { fit: { ship: "Thanatos", fighters: [{ type_id: ftr.id, quantity: 9, active: true }] }, detail: "full", sections: ["offense"], include_request: true });
-      assert.equal(r.request.fighters[0].quantity, 9);
-      assert.ok(r.offense.total.fighter_dps > 0, JSON.stringify(r.offense.total));
-    }
+    // attribute 974 = hullEmDamageResonance: rolled 0.5 instead of DC II's 0.6; Rifter hull 0.67 -> em 0.335, the rest stays 0.402
+    assert.deepEqual(plain.defense.resonance.hull, { em: 0.402, explosive: 0.402, kinetic: 0.402, thermal: 0.402 });
+    assert.ok(Math.abs(mut.defense.resonance.hull.em - 0.335) < 1e-9, JSON.stringify(mut.defense.resonance.hull));
+    assert.equal(mut.defense.resonance.hull.thermal, 0.402);
+    assert.equal(mut.defense.hp.hull, plain.defense.hp.hull);
+    const ftr = ds!.byExactName("Templar II");
+    assert.ok(ftr && ftr.kind === "fighter", "the dataset has Templar II fighters");
+    // bench core case fighters_templar_mwd_thanatos (Pyfa): 2 squadrons x 9, FSU II, abilities attack+MWD / attack+missiles
+    const r = await call(c, "compute_fit", {
+      fit: {
+        ship: "Thanatos",
+        modules: ["Fighter Support Unit II"],
+        fighters: [
+          { type_id: ftr!.id, quantity: 9, abilities: [6465, 6441] },
+          { type_id: ftr!.id, quantity: 9, abilities: [6465, 6431] },
+        ],
+      },
+      skills: 5,
+      detail: "full",
+      sections: ["offense"],
+      include_request: true,
+    });
+    assert.equal(r.request.fighters[0].quantity, 9);
+    assert.ok(Math.abs(r.offense.total.fighter_dps - 941.8776120820668) < 1e-3, JSON.stringify(r.offense.total));
+  });
+
+  test("mcp.features.options-passthrough: engine options (factor_reload, default_spool, rah) reach the engine and change the numbers", async () => {
+    const eft = "[Rifter, reload]\n\n\n200mm AutoCannon II, Republic Fleet EMP S\nRocket Launcher II, Nova Rage Rocket";
+    const noReload = await call(c, "compute_fit", { eft, skills: 5, include_request: true });
+    const reload = await call(c, "compute_fit", { eft, skills: 5, options: { factor_reload: true }, include_request: true });
+    assert.equal(reload.request.options.factor_reload, true);
+    assert.ok(reload.metrics.dps < noReload.metrics.dps * 0.98, `factor_reload ${reload.metrics.dps} vs ${noReload.metrics.dps}`);
+    const zar = { ship: "Zarmazd", modules: ["Heavy Mutadaptive Remote Armor Repairer II"] };
+    const spoolMax = await call(c, "compute_fit", { fit: zar, skills: 5 });
+    const spool0 = await call(c, "compute_fit", { fit: zar, skills: 5, options: { default_spool: { type: "spool_scale", amount: 0 } }, include_request: true });
+    assert.deepEqual(spool0.request.options.default_spool, { type: "spool_scale", amount: 0 });
+    assert.ok(spool0.metrics.remote_armor_rep < spoolMax.metrics.remote_armor_rep * 0.7, `${spool0.metrics.remote_armor_rep} vs ${spoolMax.metrics.remote_armor_rep}`);
+    const hyp = { ship: "Hyperion", modules: ["Reactive Armor Hardener", "Large Armor Repairer II"] };
+    const dmg = { em: 0, thermal: 0, kinetic: 50, explosive: 50 };
+    const adapt = await call(c, "compute_fit", { fit: hyp, skills: 5, damage_profile: dmg, detail: "full", sections: ["defense"], options: { rah: "adapt" } });
+    const off = await call(c, "compute_fit", { fit: hyp, skills: 5, damage_profile: dmg, detail: "full", sections: ["defense"], options: { rah: "disable" } });
+    // unadapted RAH: 15% to every type; adapted to kinetic/explosive damage: those two get more, EM/thermal less
+    assert.ok(adapt.defense.resonance.armor.kinetic < off.defense.resonance.armor.kinetic, JSON.stringify([adapt.defense.resonance.armor, off.defense.resonance.armor]));
+    assert.ok(adapt.defense.resonance.armor.explosive < off.defense.resonance.armor.explosive);
+    assert.ok(adapt.defense.resonance.armor.em > off.defense.resonance.armor.em);
+  });
+
+  test("mcp.features.security-status-passthrough: character.security_status reaches the engine request", async () => {
+    const fit = { ship: "Pacifier", modules: ["Small Armor Repairer II"], character: { security_status: 5 } };
+    const r = await call(c, "compute_fit", { fit, skills: 5, include_request: true, detail: "full", sections: ["defense"] });
+    assert.equal(r.request.character.security_status, 5);
+    assert.equal(r.request.character.skills.default_level, 5, "skills merge with the given character");
+    const neg = await call(c, "compute_fit", { fit: { ...fit, character: { security_status: -10 } }, skills: 5, include_request: true, detail: "full", sections: ["defense"] });
+    assert.equal(neg.request.character.security_status, -10);
+    const none = await call(c, "compute_fit", { fit: { ship: "Pacifier" }, skills: 5, include_request: true, detail: "full", sections: ["defense"] });
+    assert.equal(none.request.character.security_status, undefined, "no security status unless given");
+  });
+
+  // Pyfa effect 6871 concordSecStatusTankBonus (Pacifier/Enforcer/Marshal): +10% armor repair per point of security status (0..5).
+  // Engine F 2da8150 does not implement it yet; reported as TODO, not a pass.
+  test("mcp.features.security-status-value: a security-status-dependent value changes (CONCORD armor repair bonus)", { todo: "engine F (eve-dogma 2da8150) lacks Pyfa effect 6871 concordSecStatusTankBonus" }, async () => {
+    const at = async (sec: number) =>
+      (await call(c, "compute_fit", { fit: { ship: "Pacifier", modules: ["Small Armor Repairer II"], character: { security_status: sec } }, skills: 5, detail: "full", sections: ["defense"] })).defense.tank.raw.armor_repair;
+    const r0 = await at(0);
+    const r5 = await at(5);
+    assert.ok(Math.abs(r5 / r0 - 1.5) < 1e-6, `sec 5 ${r5} vs sec 0 ${r0}`);
   });
 
   test("mcp.features.browse-market: browse_market / get_type market info through the server", { skip: !hasMarket && "dataset without market_groups" }, async () => {
@@ -281,5 +346,67 @@ describe("graphs and passthrough features (engine)", { skip: !haveEngine && "eng
     assert.ok(r.variations.length >= 3);
     const g = await call(c, "get_type", { type: "Rifter" });
     assert.ok(g.market.market_path.length >= 2);
+  });
+});
+
+// ------------------------------------------------------------------------------------------- data update (SVC-004)
+
+describe("data update: a second dataset", { skip: !haveEngine && "engine or dataset missing" }, () => {
+  // A "new SDE": the same dataset with another build number and Rifter's CPU output +10 tf.
+  let dir: string;
+  let next: string;
+  let build: number;
+  const RIFTER = 587;
+  const CPU_OUTPUT = "48";
+  before(() => {
+    dir = mkdtempSync(join(tmpdir(), "eve-fit-sde-"));
+    const d = JSON.parse(gunzipSync(readFileSync(DATASET)).toString("utf8"));
+    build = (d.sde?.build ?? 0) + 1;
+    d.sde = { ...(d.sde ?? {}), build };
+    d.types[String(RIFTER)].attrs[CPU_OUTPUT] += 10;
+    next = join(dir, `dataset-${build}.json.gz`);
+    writeFileSync(next, gzipSync(Buffer.from(JSON.stringify(d))));
+  });
+  after(() => rmSync(dir, { recursive: true, force: true }));
+
+  const cpuOf = async (c: Client) => (await call(c, "get_ship", { ship: "Rifter" })).base_layout.resources.cpu;
+
+  test("mcp.features.second-dataset: switching EVE_DOGMA_DATASET updates engine_info, the index and its numbers, and flags an engine still on the old data", async () => {
+    const old = await connect();
+    const neu = await connect({ EVE_DOGMA_DATASET: next });
+    try {
+      const a = await call(old, "engine_info", {});
+      const b = await call(neu, "engine_info", {});
+      assert.equal(b.dataset.sde_build, build);
+      assert.equal(b.dataset.path, next);
+      assert.notEqual(b.dataset.sha256, a.dataset.sha256);
+      assert.equal(a.dataset_match, true);
+      assert.equal(b.dataset.types, a.dataset.types);
+      assert.equal((await cpuOf(neu)) - (await cpuOf(old)), 10, "hull data comes from the new dataset");
+      const fa = await call(old, "compute_fit", { fit: { ship: "Rifter" }, skills: 0, detail: "full", sections: ["resources"] });
+      const fb = await call(neu, "compute_fit", { fit: { ship: "Rifter" }, skills: 0, detail: "full", sections: ["resources"] });
+      // the default engine F compiles its dataset in: it keeps computing on the old data until rebuilt, and engine_info says so
+      assert.equal(b.dataset_match, false, "engine F still on the compiled-in dataset");
+      assert.equal(fb.resources.cpu.total, fa.resources.cpu.total);
+    } finally {
+      await old.close();
+      await neu.close();
+    }
+  });
+
+  test("mcp.features.second-dataset-runtime-engine: an engine that loads the dataset at run time (variant C) computes on the new data", { skip: !existsSync(GO_BIN) && "variant C binary missing" }, async () => {
+    const env = { EVE_DOGMA_BIN: GO_BIN, EVE_FIT_RPC_CMD: "{bin} --dataset {dataset} serve-stdio" };
+    const old = await connect(env);
+    const neu = await connect({ ...env, EVE_DOGMA_DATASET: next });
+    try {
+      const b = await call(neu, "engine_info", {});
+      assert.equal(b.dataset_match, true);
+      const fa = await call(old, "compute_fit", { fit: { ship: "Rifter" }, skills: 0, detail: "full", sections: ["resources"] });
+      const fb = await call(neu, "compute_fit", { fit: { ship: "Rifter" }, skills: 0, detail: "full", sections: ["resources"] });
+      assert.equal(fb.resources.cpu.total - fa.resources.cpu.total, 10);
+    } finally {
+      await old.close();
+      await neu.close();
+    }
   });
 });

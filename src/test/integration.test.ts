@@ -163,6 +163,15 @@ describe(`eve-fit-mcp (rpc adapter, ${basename(ENGINE_BIN)})`, { skip: !haveEngi
     const r = await call(c, "compute_fit", { eft: RIFTER_EFT, detail: "full", sections: ["capacitor", "navigation"] });
     assert.deepEqual(Object.keys(r).filter((k) => !["request_hash", "notes", "engine"].includes(k)).sort(), ["capacitor", "navigation"]);
     assert.equal(typeof r.capacitor.stable, "boolean");
+    // Rifter, all V: capacitor 250 * 1.25 (Capacitor Management) * 0.8 (5MN MWD II capacitor penalty) = 250 GJ,
+    // recharge 125 s * 0.75 (Capacitor Systems Operation) = 93.75 s, peak recharge 2.5 C / T; MWD + ancillary repairer drain it
+    assert.equal(r.capacitor.capacity, 250);
+    assert.equal(r.capacitor.recharge_time_s, 93.75);
+    assert.ok(Math.abs(r.capacitor.peak_recharge_gj_s - (2.5 * 250) / 93.75) < 1e-5, String(r.capacitor.peak_recharge_gj_s));
+    assert.ok(r.capacitor.use_gj_s > 0);
+    assert.ok(Math.abs(r.capacitor.delta_gj_s - (r.capacitor.peak_recharge_gj_s - r.capacitor.use_gj_s + (r.capacitor.injected_gj_s ?? 0))) < 1e-3, JSON.stringify(r.capacitor));
+    if (r.capacitor.stable) assert.ok(r.capacitor.stable_percent > 0 && r.capacitor.stable_percent <= 100);
+    else assert.ok(r.capacitor.depletes_in_s > 0, JSON.stringify(r.capacitor));
   });
 
   test("mcp.integration.validate-fit: validate_fit names modules and hints", async () => {

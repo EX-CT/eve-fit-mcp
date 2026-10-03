@@ -1,6 +1,6 @@
 {
   "name": "eve-fit-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Engine-agnostic MCP server for EVE Online ship fitting (search, validate, compute, compare, optimise) on top of any eve-dogma contract engine",
   "scripts": {
     "build": "tsc -p .",

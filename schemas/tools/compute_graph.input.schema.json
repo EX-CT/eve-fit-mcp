@@ -546,8 +546,11 @@
       "type": "string"
     },
     "graph": {
-      "type": "string",
-      "description": "graph name from list_graphs, e.g. damage, capacitor, mobility"
+      "description": "graph name from list_graphs, e.g. damage, capacitor, mobility (required)",
+      "type": [
+        "string",
+        "null"
+      ]
     },
     "x_axis": {
       "description": "x axis (default: the graph's first axis valid for every requested y)",
@@ -559,9 +562,7 @@
         "values": {
           "maxItems": 500,
           "type": "array",
-          "items": {
-            "type": "number"
-          }
+          "items": {}
         },
         "from": {
           "type": "number"
@@ -1107,15 +1108,8 @@
           ]
         },
         "resist_mode": {
-          "description": "which resist layer of a target fit applies (default auto)",
-          "type": "string",
-          "enum": [
-            "auto",
-            "shield",
-            "armor",
-            "hull",
-            "weighted_average"
-          ]
+          "description": "which resist layer of a target fit applies: auto (default), shield, armor, hull, weighted_average",
+          "type": "string"
         }
       }
     },
@@ -1139,8 +1133,5 @@
       "description": "include a markdown table in the text output (default: when ≤ 30 points)",
       "type": "boolean"
     }
-  },
-  "required": [
-    "graph"
-  ]
+  }
 }

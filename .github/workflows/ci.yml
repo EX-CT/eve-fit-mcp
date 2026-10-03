@@ -58,3 +58,16 @@ jobs:
           grep -q '^# fail 0' test.log
           if grep -qE 'SKIP (engine|dataset)|engine or dataset missing|dataset missing' test.log; then echo "engine/dataset suites skipped"; exit 1; fi
           grep -E '^# (tests|pass|fail|skipped)' test.log >> "$GITHUB_STEP_SUMMARY"
+      - name: Bench corpus through the MCP (tools/mcp-dogma-bench.py, suite mcp-bench; bench sha in engines.lock)
+        run: |
+          git clone -q "https://github.com/$DOGMA_BENCH_REPO" "$RUNNER_TEMP/bench"
+          git -C "$RUNNER_TEMP/bench" checkout -q "$DOGMA_BENCH_SHA"
+          set -o pipefail
+          python3 tools/mcp-dogma-bench.py run --bench "$RUNNER_TEMP/bench" --out mcp-bench.json | tee bench.log
+          { echo "mcp-bench ($DOGMA_BENCH_REPO@${DOGMA_BENCH_SHA:0:7}):"; grep -E '^mcp-bench' bench.log; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mcp-bench-results
+          path: mcp-bench.json
+          if-no-files-found: ignore

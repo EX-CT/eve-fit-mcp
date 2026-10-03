@@ -1,0 +1,60 @@
+name: release
+# On a version tag (v*): test, pack the npm tarball (dist/ prebuilt, so it installs without a TypeScript build),
+# smoke-test the packed package via npx, and publish a GitHub Release with the tarball and checksums.
+# No npm registry publish: install straight from the release asset (see README "Install").
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22", cache: npm }
+      - name: Tag matches package.json version
+        run: |
+          V=$(node -p "require('./package.json').version")
+          [ "$TAG" = "v$V" ] || { echo "tag $TAG != package.json version v$V"; exit 1; }
+          echo "VERSION=$V" >> "$GITHUB_ENV"
+      - run: npm ci
+      - run: npm test
+      - name: Pack
+        run: |
+          mkdir -p out
+          npm pack --pack-destination out
+          cp "out/eve-fit-mcp-$VERSION.tgz" out/eve-fit-mcp.tgz   # stable name for releases/latest/download/
+          (cd out && sha256sum *.tgz > SHA256SUMS)
+          cat out/SHA256SUMS
+      - name: Smoke test the packed package (npx, as users install it)
+        run: |
+          cd "$RUNNER_TEMP"
+          npx -y --package="$GITHUB_WORKSPACE/out/eve-fit-mcp.tgz" eve-fit-mcp --help | tee help.txt
+          grep -q "eve-fit-mcp $VERSION" help.txt
+      - name: Publish GitHub Release
+        run: |
+          URL="${{ github.server_url }}/${{ github.repository }}/releases/download/$TAG/eve-fit-mcp-$VERSION.tgz"
+          {
+            echo "eve-fit-mcp $VERSION — MCP server for EVE Online fitting (engine-agnostic, eve-dogma contract)."
+            echo
+            echo "Install (Node >= 20, an engine such as \`eve-dogma\` on PATH, and a dataset from EX-CT/eve-sde-pipeline):"
+            echo
+            echo '```bash'
+            echo "npx -y --package=$URL eve-fit-mcp --help"
+            echo "npm install -g $URL     # or install globally"
+            echo '```'
+            echo
+            echo "MCP client config and one-click links: see the README. Built by ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}."
+          } > notes.md
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" out/*.tgz out/SHA256SUMS --clobber
+          else
+            gh release create "$TAG" out/*.tgz out/SHA256SUMS --title "eve-fit-mcp $VERSION" --notes-file notes.md --verify-tag
+          fi
+          echo "Published ${{ github.server_url }}/${{ github.repository }}/releases/tag/$TAG" >> "$GITHUB_STEP_SUMMARY"

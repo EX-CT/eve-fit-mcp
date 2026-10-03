@@ -46,6 +46,11 @@ Transports: **stdio**, and **Streamable HTTP** (`--http`; stateless, `POST /mcp`
 | `skill_requirements` | every skill the fit needs, prerequisites included, and what the character lacks |
 | `evaluate_profiles` | applied DPS vs frigate…structure targets and EHP vs EM/thermal/…/NPC damage profiles in one batch |
 | `engine_info` | engine, adapter, dataset build/sha256, and whether engine and index use the same dataset |
+| `browse_market` | the in-game market tree: roots, a group by id / name / `a/b/c` path, `depth`, `meta_groups` filter (`T1`, `T2`, `Faction` …), item counts. `get_type` also shows an item's market path and its meta variations |
+| `list_graphs` | the engine's graphs (Pyfa graph set: DPS/volley vs range, applied DPS vs target speed/signature, cap, speed/distance vs time, warp, EHP/RPS, lock time …) with their axes, defaults and whether they need a target |
+| `compute_graph` | one graph for a fit: `x` (`values` or `from`/`to`/`points`), the y series, a `target` (profile preset or object, or a target fit given as `fit`/`eft`/`dna`), graph params. Returns the series and a min/max/at-x summary (`table` for the raw points) |
+| `get_prices` | prices for types by id or name, from ESI (universe average) or Fuzzwork (trade-hub sell/buy), with source and age |
+| `price_fit` | Pyfa-style price panel: ship, fittings, charges (one full load per module), drones, fighters, cargo, implants, boosters, total; unpriced items listed |
 
 Fit inputs are the same for every fit tool. Give exactly one of `eft`, `dna` or `fit` (contract
 FitRequest; **names are accepted wherever ids are**, e.g. `"modules": ["200mm AutoCannon II, EMP S"]`).
@@ -58,6 +63,7 @@ Resources:
 * `eve://presets`, `eve://jargon`, `eve://metrics`
 * `eve://guide/fitting`
 * `eve://type/{id}`, `eve://ship/{id}/layout`, `eve://ship/{id}/modules/{slot}`
+* `eve://prices/sources`
 
 Prompts: `fit_for_role`, `review_fit`, `explain_stat`, `compare_options`.
 
@@ -137,6 +143,13 @@ npm ci && npm run build
 | `EVE_FIT_CACHE` | `2000` | calc results cached in memory by exact request (`0` = off) |
 | `EVE_FIT_HTTP_HOST` / `EVE_FIT_HTTP_PORT` | `127.0.0.1` / `8765` | for `--http` |
 | `EVE_FIT_ALLOWED_HOSTS` | loopback + bind host | extra `Host` header values accepted by `--http` (comma-separated; DNS-rebinding protection). `*` disables the check |
+| `EVE_FIT_PRICE_SOURCE` | `esi` | `esi` or `fuzzwork` (see [Prices](#prices)) |
+| `EVE_FIT_PRICE_SYSTEM` | `jita` | Fuzzwork trade hub: `jita`, `amarr`, `dodixie`, `rens`, `hek` |
+| `EVE_FIT_PRICE_CACHE` | `$XDG_CACHE_HOME/eve-fit-mcp` (else `~/.cache/eve-fit-mcp`) | price cache directory; `off` = memory only |
+| `EVE_FIT_PRICE_TTL_S` | `3600` | price cache lifetime (ESI: its `Expires` header wins) |
+| `EVE_FIT_OFFLINE` | – | `1` = never fetch prices; use the cache whatever its age (answers are marked stale) |
+| `EVE_FIT_USER_AGENT` | names this project | User-Agent for ESI / Fuzzwork; add your contact (ESI etiquette) |
+| `EVE_FIT_ESI_URL` / `EVE_FIT_FUZZWORK_URL` | public endpoints | override the price endpoints (mirrors, tests) |
 
 The templates make any engine pluggable. For example, eve-dogma-rs (variant A): `EVE_DOGMA_BIN=/path/eve-dogma`;
 variant C (Go): `EVE_DOGMA_BIN=/path/eve-dogma-go` (same CLI shape; its serve mode adds a response memo). F (`eve-fit`, and the older `eve-dogma-f`)
@@ -184,6 +197,24 @@ accepts and ignores `--dataset` (its dataset is compiled in), so the default tem
 Over HTTP: run `EVE_DOGMA_BIN=… EVE_DOGMA_DATASET=… node dist/main.js --http --port 8765` and point the client
 at `http://127.0.0.1:8765/mcp` (Cursor: `{"url": "http://127.0.0.1:8765/mcp"}`). The server binds to localhost
 by default and has no authentication. Put a reverse proxy with auth in front before exposing it.
+
+## Prices
+
+`get_prices` and `price_fit` are the only tools that use the network, and only when they are called.
+
+| source | endpoint | price |
+|---|---|---|
+| `esi` (default) | CCP ESI `GET /markets/prices/` (one request covers every type) | `average_price`, falling back to `adjusted_price` |
+| `fuzzwork` | `market.fuzzwork.co.uk/aggregates/?system=<hub>&types=…` | hub sell 5th percentile (and buy 95th percentile) |
+
+Prices are cached in memory and on disk (`prices-<source>-<system>.json`) for `EVE_FIT_PRICE_TTL_S`. On a network
+error the cache is used whatever its age, and with `EVE_FIT_OFFLINE=1` nothing is fetched; both cases say so in the
+answer (`stale`, `age_s`). Prices are indicative only: market data lags, and averages are not what you pay in a hub.
+
+Attribution: EVE Online market data comes from CCP's ESI under the
+[CCP Developer License](https://developers.eveonline.com/license-agreement); EVE Online and all related marks are
+property of CCP hf. Trade-hub aggregates are provided by Steve Ronuken's [Fuzzwork](https://market.fuzzwork.co.uk/);
+please keep request volume low (this server batches one request per lookup and caches).
 
 ## Example
 

@@ -12,8 +12,11 @@ import { applyChange, candidateModules, characterLevel, evalBatch, freeSlots, op
 import { DEFAULT_COMPARE, goalScore, METRICS, metric, round, type Goal } from "./metrics.js";
 
 const goalScoreSafe = (g: Goal[], s: FitStats, b: FitStats) => round(goalScore(g, s, b), 5) ?? 0;
-import { DAMAGE_PROFILES, implantSets, SKILL_PRESETS, TARGET_PROFILES } from "./profiles.js";
-import { Change, Constraints, fitInputShape, FitInputObject, GoalSpec, z } from "./schemas.js";
+import { DAMAGE_PROFILES, implantSets, SKILL_PRESETS, TARGET_PROFILES, targetProfile } from "./profiles.js";
+import { describeGraphs, graphSpecs, pickAxes, sampleX, summarizeSeries, TARGET_GRAPHS } from "./graphs.js";
+import { browseMarket, typeMarket, typeRow } from "./market.js";
+import { fitItems, HUBS, PriceService, priceConfig, SOURCES } from "./prices.js";
+import { Change, Constraints, fitInputShape, FitInputObject, FitRequestLenient, GoalSpec, z } from "./schemas.js";
 import { markdownTable, pickSections, SECTIONS, summarize } from "./summary.js";
 
 export const VERSION = "0.2.2";
@@ -70,6 +73,8 @@ function names(ds: Dataset, req: any) {
 
 export interface ServerDeps extends Ctx {
   engineMetaNote?: string;
+  /** market prices (default: from the environment, see prices.ts) */
+  prices?: PriceService;
 }
 
 export function createServer(ctx: ServerDeps): McpServer {
@@ -79,11 +84,12 @@ export function createServer(ctx: ServerDeps): McpServer {
     {
       capabilities: { tools: {}, resources: {}, prompts: {}, logging: {} },
       instructions:
-        "EVE Online fitting tools backed by a deterministic dogma engine (Pyfa-parity numbers). Typical flow: search_types → compute_fit (EFT text, DNA or FitRequest JSON; names accepted) → compare_fits / what_if → suggest_modules / optimize_fit. Every tool is stateless: pass the whole fit each time. Skills default to all V unless `skills` is given. Read eve://guide/fitting for the workflow and eve://schema/fit-request for the request format.",
+        "EVE Online fitting tools backed by a deterministic dogma engine (Pyfa-parity numbers). Typical flow: search_types / browse_market → compute_fit (EFT text, DNA or FitRequest JSON; names accepted) → compare_fits / what_if → suggest_modules / optimize_fit; compute_graph (list_graphs) for Pyfa graphs; price_fit / get_prices for market prices. Every tool is stateless: pass the whole fit each time. Skills default to all V unless `skills` is given. Read eve://guide/fitting for the workflow and eve://schema/fit-request for the request format.",
     },
   );
 
   const norm = (a: FitInput) => normalizeFit(ctx, a);
+  const prices = ctx.prices ?? new PriceService(priceConfig());
   const calc = (req: FitRequest) => ctx.engine.calc(req);
 
   // ---------------------------------------------------------------- catalogue
@@ -162,6 +168,7 @@ export function createServer(ctx: ServerDeps): McpServer {
         ...(charges.length ? { charges } : {}),
         ...(t.kind === "ship" || t.kind === "structure" ? { layout: ds.shipLayout(t) } : {}),
         same_group: variations,
+        ...(ds.marketGroups.size ? { market: typeMarket(ds, t) } : {}),
       });
     }),
   );
@@ -724,6 +731,226 @@ export function createServer(ctx: ServerDeps): McpServer {
     }),
   );
 
+
+  // ---------------------------------------------------------------- market browser
+  server.registerTool(
+    "browse_market",
+    {
+      title: "Market browser",
+      description:
+        "Pyfa's market tree: market groups (English/Chinese names) with item counts, the items of a group (meta group, meta level, tech level, slot), optionally only some meta groups (Pyfa's meta buttons: Tech I, Tech II, Faction, Storyline, Deadspace, Officer, Abyssal…). Without `group` it lists the root groups. Give `type` instead to get an item's market path and its variations (meta family: T1, T2, faction, deadspace, officer…) for meta swaps. Only fitting-relevant items are in the dataset; empty groups are hidden unless include_empty.",
+      inputSchema: {
+        group: z.union([z.number().int(), z.string()]).optional().describe("market group id, name, or path like 'Ship Equipment/Turrets & Launchers/Projectile Turrets'"),
+        type: z.union([z.number().int(), z.string()]).optional().describe("an item (id or name): return its market path and variations instead"),
+        depth: z.number().int().min(0).max(3).optional().describe("sub-group levels to expand (default 0: direct children only)"),
+        meta_groups: z.array(z.union([z.string(), z.number().int()])).optional().describe("only items of these meta groups, e.g. ['Tech II','Faction']"),
+        include_empty: z.boolean().optional(),
+        limit: z.number().int().min(1).max(1000).optional().describe("max items listed (default 200)"),
+      },
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+    },
+    wrap(async (a) => {
+      if (a.type !== undefined) {
+        const t = ds.resolve(a.type);
+        if (!ds.marketGroups.size) throw new Error("this dataset has no market_groups (needs an eve-sde-pipeline release r4 or later)");
+        return ok({ type: typeRow(ds, t), ...typeMarket(ds, t) });
+      }
+      return ok(browseMarket(ds, { group: a.group, depth: a.depth, meta_groups: a.meta_groups, include_empty: a.include_empty, limit: a.limit }));
+    }),
+  );
+
+  // ---------------------------------------------------------------- graphs
+  server.registerTool(
+    "list_graphs",
+    {
+      title: "Graph catalogue",
+      description:
+        "The engine's graphs (Pyfa graph window: damage, application profile, capacitor, shield regen, mobility, warp time, lock time, EWAR, remote reps, ECM/burst) with x axes, y series, units and parameter defaults (engine graph_specs, CONTRACT-GRAPHS 0.2). Use with compute_graph.",
+      inputSchema: {},
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+    },
+    wrap(async () => {
+      const specs = await graphSpecs(ctx.engine);
+      return ok({ contract: specs.contract ?? null, graphs: describeGraphs(specs) });
+    }),
+  );
+
+  const GraphTarget = z
+    .object({
+      profile: z.union([z.string(), z.record(z.string(), z.number().nullable())]).optional().describe("target profile preset name (list_presets) or {em,thermal,kinetic,explosive (resist 0..1), max_velocity, signature_radius, radius}"),
+      fit: FitRequestLenient.optional().describe("target fit (FitRequest, names allowed)"),
+      eft: z.string().optional().describe("target fit as EFT"),
+      dna: z.string().optional().describe("target fit as DNA"),
+      skills: fitInputShape.skills,
+      resist_mode: z.enum(["auto", "shield", "armor", "hull", "weighted_average"]).optional().describe("which resist layer of a target fit applies (default auto)"),
+    })
+    .optional();
+
+  server.registerTool(
+    "compute_graph",
+    {
+      title: "Compute graph",
+      description:
+        "One engine-computed graph for a fit (Pyfa graph window parity, CONTRACT-GRAPHS 0.2): e.g. graph=damage x_axis=distance_m y=[dps]; capacitor vs time_s; mobility speed vs time_s; lock_time vs tgt_sig_m; warp_time vs distance_m; application_profile (best ammo per distance); ewar / remote_reps vs distance_m; ecm_burst. x: explicit values or {from,to,points} (default range per axis, 21 points). `target` (damage, application_profile, ewar, remote_reps): a target profile or a target fit. Returns the series, a per-series summary (min/max/x at max) and a markdown table. Units are SI (m, s, m/s, HP/s, %).",
+      inputSchema: {
+        ...fitInputShape,
+        graph: z.string().describe("graph name from list_graphs, e.g. damage, capacitor, mobility"),
+        x_axis: z.string().optional().describe("x axis (default: the graph's first axis valid for every requested y)"),
+        x: z
+          .object({ values: z.array(z.number()).max(500).optional(), from: z.number().optional(), to: z.number().optional(), points: z.number().int().min(2).max(500).optional() })
+          .optional(),
+        y: z.array(z.string()).optional().describe("series (default: every series defined for the x axis)"),
+        target: GraphTarget,
+        params: z.record(z.string(), z.any()).optional().describe("graph parameters (list_graphs `params`, e.g. tgt_speed_mps, cap_start_pct, use_capsim, ammo_quality)"),
+        settings: z.record(z.string(), z.any()).optional().describe("Pyfa graph settings: ignore_resists, apply_projected, ignore_lock_range, ignore_drone_control_range, mobile_drone_mode"),
+        table: z.boolean().optional().describe("include a markdown table in the text output (default: when ≤ 30 points)"),
+      },
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+    },
+    wrap(async (a) => {
+      const specs = await graphSpecs(ctx.engine);
+      const spec = specs.graphs[a.graph];
+      if (!spec) throw Object.assign(new Error(`unknown graph '${a.graph}' (graphs: ${Object.keys(specs.graphs).join(", ")})`), { code: "UNKNOWN_GRAPH" });
+      const { axis, y } = pickAxes(spec, a.graph, a.x_axis, a.y);
+      const xs = sampleX(a.graph, axis, a.x);
+      const n = await norm(a);
+      const notes = [...n.notes];
+      const req: Record<string, unknown> = { schema_version: 1, graph: a.graph, fit: n.request, x: { axis, values: xs }, y };
+      if (a.target) {
+        if (!TARGET_GRAPHS.has(a.graph)) notes.push(`graph ${a.graph} ignores the target`);
+        const tg = a.target;
+        const target: Record<string, unknown> = {};
+        if (tg.fit !== undefined || tg.eft || tg.dna) {
+          const tn = await norm({ fit: tg.fit, eft: tg.eft, dna: tg.dna, skills: tg.skills });
+          target.fit = tn.request;
+          if (tg.resist_mode) target.resist_mode = tg.resist_mode;
+          notes.push(...tn.notes.map((x) => `target: ${x}`));
+        } else if (tg.profile !== undefined) {
+          if (typeof tg.profile === "string") {
+            const p = targetProfile(tg.profile);
+            if (!p) throw new Error(`unknown target profile '${tg.profile}' (see list_presets kind=target_profiles)`);
+            target.profile = { em: p.em, thermal: p.thermal, kinetic: p.kinetic, explosive: p.explosive, max_velocity: p.max_velocity, signature_radius: p.signature_radius, radius: p.radius ?? null };
+          } else target.profile = { em: 0, thermal: 0, kinetic: 0, explosive: 0, ...tg.profile };
+        }
+        if (Object.keys(target).length) req.target = target;
+      }
+      if (a.params) req.params = a.params;
+      if (a.settings) req.settings = a.settings;
+      const r: any = await ctx.engine.call("graph", req);
+      const series: Record<string, (number | null)[]> = r.series ?? {};
+      const units = Object.fromEntries(y.map((k) => [k, spec.series?.[k]?.unit ?? null]));
+      const out = {
+        graph: a.graph,
+        title: spec.title ?? a.graph,
+        x_axis: r.x_axis ?? axis,
+        x_unit: spec.axes?.[axis]?.unit ?? null,
+        units,
+        x: r.x ?? xs,
+        series,
+        summary: summarizeSeries(r.x ?? xs, series),
+        ...(r.meta ? { meta: r.meta } : {}),
+        notes,
+        request_hash: n.hash,
+      };
+      const showTable = a.table ?? xs.length <= 30;
+      let text: string | undefined;
+      if (showTable) {
+        const fmt = (v: number | null | undefined) => (v === null || v === undefined ? "–" : String(round(v, 3)));
+        const head = `| ${axis} | ${y.map((k) => `${k}${units[k] ? ` (${units[k]})` : ""}`).join(" | ")} |`;
+        const rows = out.x.map((xv: number, i: number) => `| ${fmt(xv)} | ${y.map((k) => fmt(series[k]?.[i])).join(" | ")} |`);
+        text = [`${out.title} — ${y.join(", ")} vs ${axis}`, "", head, `|${"---|".repeat(y.length + 1)}`, ...rows].join("\n");
+      }
+      return ok(out, text);
+    }),
+  );
+
+  // ---------------------------------------------------------------- prices
+  const PriceOpts = {
+    source: z.enum(SOURCES.map((x) => x.id) as [string, ...string[]]).optional().describe("price source (default EVE_FIT_PRICE_SOURCE or esi): esi = CCP universe average, fuzzwork = trade-hub sell/buy percentile"),
+    system: z.enum(Object.keys(HUBS) as [string, ...string[]]).optional().describe("trade hub for fuzzwork (default EVE_FIT_PRICE_SYSTEM or jita)"),
+  };
+
+  server.registerTool(
+    "get_prices",
+    {
+      title: "Item prices",
+      description:
+        "Market prices for items (ids or names) from a public source: esi (CCP ESI /markets/prices/, universe-wide average) or fuzzwork (Jita/Amarr/Dodixie/Rens/Hek sell and buy 5% percentile). Cached (default 1 h); offline or on network errors the cache is used and `stale` is set; unknown prices are null.",
+      inputSchema: { types: z.array(z.union([z.number().int(), z.string()])).min(1).max(500), ...PriceOpts },
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
+    },
+    wrap(async (a) => {
+      const ts = a.types.map((x) => ds.resolve(x));
+      const r = await prices.lookup(ts.map((t) => t.id), { source: a.source, system: a.system });
+      return ok({
+        source: r.source,
+        system: r.system,
+        as_of: r.as_of ? new Date(r.as_of).toISOString() : null,
+        stale: r.stale,
+        prices: ts.map((t) => ({ type_id: t.id, name: t.name, ...r.prices.get(t.id) })),
+        notes: r.notes,
+      });
+    }),
+  );
+
+  server.registerTool(
+    "price_fit",
+    {
+      title: "Fit price",
+      description:
+        "Price a fit like Pyfa's price panel: ship, fittings (modules), charges (loaded, a full module load each), drones, fighters, cargo, implants and boosters, with per-item price and quantity (price column) and the total. Toggles leave drones/fighters, cargo or implants/boosters out of the total. Same sources and caching as get_prices.",
+      inputSchema: {
+        ...fitInputShape,
+        ...PriceOpts,
+        include_drones: z.boolean().optional().describe("drones and fighters in the total (default true)"),
+        include_cargo: z.boolean().optional().describe("cargo in the total (default true)"),
+        include_character: z.boolean().optional().describe("implants and boosters in the total (default true)"),
+      },
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
+    },
+    wrap(async (a) => {
+      const n = await norm(a);
+      const items = fitItems(n.request, (mod, ch) => {
+        const cap = ds.type(mod)?.capacity ?? 0;
+        const vol = ds.type(ch)?.volume ?? 0;
+        return cap > 0 && vol > 0 ? Math.max(1, Math.floor(cap / vol + 1e-9)) : 1;
+      });
+      const r = await prices.lookup(items.map((i) => i.type_id), { source: a.source, system: a.system });
+      const excluded = new Set<string>([
+        ...(a.include_drones === false ? ["drones", "fighters"] : []),
+        ...(a.include_cargo === false ? ["cargo"] : []),
+        ...(a.include_character === false ? ["implants", "boosters"] : []),
+      ]);
+      const sections: Record<string, number> = {};
+      let total = 0;
+      const rows = items.map((i) => {
+        const p = r.prices.get(i.type_id)?.price ?? null;
+        const value = p === null ? null : p * i.quantity;
+        sections[i.section] = (sections[i.section] ?? 0) + (value ?? 0);
+        if (value !== null && !excluded.has(i.section)) total += value;
+        return { section: i.section, type_id: i.type_id, name: ds.type(i.type_id)?.name ?? String(i.type_id), quantity: i.quantity, unit_price: p, value };
+      });
+      const isk = (v: number) => `${round(v / 1e6, 2)}M`;
+      const text = [`Fit price (${r.source}${r.source === "esi" ? "" : ` ${r.system}`}${r.stale ? ", cached/stale" : ""}): ${isk(total)} ISK`, ...Object.entries(sections).map(([k, v]) => `- ${k}: ${isk(v)}${excluded.has(k) ? " (excluded)" : ""}`)].join("\n");
+      return ok(
+        {
+          source: r.source,
+          system: r.system,
+          as_of: r.as_of ? new Date(r.as_of).toISOString() : null,
+          stale: r.stale,
+          total: round(total, 2),
+          sections: Object.fromEntries(Object.entries(sections).map(([k, v]) => [k, round(v, 2)])),
+          excluded: [...excluded],
+          items: rows,
+          missing: rows.filter((x) => x.unit_price === null).map((x) => x.name),
+          notes: [...n.notes, ...r.notes],
+          request_hash: n.hash,
+        },
+        text,
+      );
+    }),
+  );
+
   // ---------------------------------------------------------------- resources
   const json = (uri: string, data: unknown) => ({ contents: [{ uri, mimeType: "application/json", text: JSON.stringify(data, null, 1) }] });
   server.registerResource("dataset-meta", "eve://dataset/meta", { title: "Dataset metadata", mimeType: "application/json", description: "SDE build, sha256, counts" }, async (uri) =>
@@ -737,6 +964,9 @@ export function createServer(ctx: ServerDeps): McpServer {
   }));
   server.registerResource("presets", "eve://presets", { title: "Skill / damage / target presets and implant sets", mimeType: "application/json" }, async (uri) =>
     json(uri.href, { skills: SKILL_PRESETS, damage_profiles: DAMAGE_PROFILES, target_profiles: TARGET_PROFILES, implant_sets: implantSets(ds) }),
+  );
+  server.registerResource("price-sources", "eve://prices/sources", { title: "Price sources, trade hubs and terms", mimeType: "application/json" }, async (uri) =>
+    json(uri.href, { default_source: prices.cfg.source, default_system: prices.cfg.system, offline: prices.cfg.offline, ttl_s: prices.cfg.ttlS, sources: SOURCES, hubs: HUBS }),
   );
   server.registerResource("jargon", "eve://jargon", { title: "Player jargon understood by search", mimeType: "application/json" }, async (uri) => json(uri.href, JARGON));
   server.registerResource("metrics", "eve://metrics", { title: "Metric keys for compare/suggest/optimise goals", mimeType: "application/json" }, async (uri) =>

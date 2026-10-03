@@ -178,5 +178,55 @@
       "idempotentHint": true,
       "openWorldHint": false
     }
+  },
+  {
+    "name": "browse_market",
+    "title": "Market browser",
+    "description": "Pyfa's market tree: market groups (English/Chinese names) with item counts, the items of a group (meta group, meta level, tech level, slot), optionally only some meta groups (Pyfa's meta buttons: Tech I, Tech II, Faction, Storyline, Deadspace, Officer, Abyssal…). Without `group` it lists the root groups. Give `type` instead to get an item's market path and its variations (meta family: T1, T2, faction, deadspace, officer…) for meta swaps. Only fitting-relevant items are in the dataset; empty groups are hidden unless include_empty.",
+    "annotations": {
+      "readOnlyHint": true,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "list_graphs",
+    "title": "Graph catalogue",
+    "description": "The engine's graphs (Pyfa graph window: damage, application profile, capacitor, shield regen, mobility, warp time, lock time, EWAR, remote reps, ECM/burst) with x axes, y series, units and parameter defaults (engine graph_specs, CONTRACT-GRAPHS 0.2). Use with compute_graph.",
+    "annotations": {
+      "readOnlyHint": true,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "compute_graph",
+    "title": "Compute graph",
+    "description": "One engine-computed graph for a fit (Pyfa graph window parity, CONTRACT-GRAPHS 0.2): e.g. graph=damage x_axis=distance_m y=[dps]; capacitor vs time_s; mobility speed vs time_s; lock_time vs tgt_sig_m; warp_time vs distance_m; application_profile (best ammo per distance); ewar / remote_reps vs distance_m; ecm_burst. x: explicit values or {from,to,points} (default range per axis, 21 points). `target` (damage, application_profile, ewar, remote_reps): a target profile or a target fit. Returns the series, a per-series summary (min/max/x at max) and a markdown table. Units are SI (m, s, m/s, HP/s, %).",
+    "annotations": {
+      "readOnlyHint": true,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "get_prices",
+    "title": "Item prices",
+    "description": "Market prices for items (ids or names) from a public source: esi (CCP ESI /markets/prices/, universe-wide average) or fuzzwork (Jita/Amarr/Dodixie/Rens/Hek sell and buy 5% percentile). Cached (default 1 h); offline or on network errors the cache is used and `stale` is set; unknown prices are null.",
+    "annotations": {
+      "readOnlyHint": true,
+      "idempotentHint": true,
+      "openWorldHint": true
+    }
+  },
+  {
+    "name": "price_fit",
+    "title": "Fit price",
+    "description": "Price a fit like Pyfa's price panel: ship, fittings (modules), charges (loaded, a full module load each), drones, fighters, cargo, implants and boosters, with per-item price and quantity (price column) and the total. Toggles leave drones/fighters, cargo or implants/boosters out of the total. Same sources and caching as get_prices.",
+    "annotations": {
+      "readOnlyHint": true,
+      "idempotentHint": true,
+      "openWorldHint": true
+    }
   }
 ]

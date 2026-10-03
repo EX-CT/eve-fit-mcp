@@ -1,0 +1,65 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "browse_market",
+  "description": "Pyfa's market tree: market groups (English/Chinese names) with item counts, the items of a group (meta group, meta level, tech level, slot), optionally only some meta groups (Pyfa's meta buttons: Tech I, Tech II, Faction, Storyline, Deadspace, Officer, Abyssal…). Without `group` it lists the root groups. Give `type` instead to get an item's market path and its variations (meta family: T1, T2, faction, deadspace, officer…) for meta swaps. Only fitting-relevant items are in the dataset; empty groups are hidden unless include_empty.",
+  "type": "object",
+  "properties": {
+    "group": {
+      "description": "market group id, name, or path like 'Ship Equipment/Turrets & Launchers/Projectile Turrets'",
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "type": {
+      "description": "an item (id or name): return its market path and variations instead",
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "depth": {
+      "description": "sub-group levels to expand (default 0: direct children only)",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 3
+    },
+    "meta_groups": {
+      "description": "only items of these meta groups, e.g. ['Tech II','Faction']",
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        ]
+      }
+    },
+    "include_empty": {
+      "type": "boolean"
+    },
+    "limit": {
+      "description": "max items listed (default 200)",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000
+    }
+  }
+}

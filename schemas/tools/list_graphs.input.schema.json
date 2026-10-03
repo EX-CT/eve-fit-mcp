@@ -1,0 +1,7 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "list_graphs",
+  "description": "The engine's graphs (Pyfa graph window: damage, application profile, capacitor, shield regen, mobility, warp time, lock time, EWAR, remote reps, ECM/burst) with x axes, y series, units and parameter defaults (engine graph_specs, CONTRACT-GRAPHS 0.2). Use with compute_graph.",
+  "type": "object",
+  "properties": {}
+}

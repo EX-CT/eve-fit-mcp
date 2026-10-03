@@ -965,30 +965,33 @@ export function createServer(ctx: ServerDeps): McpServer {
       const req: Record<string, any> = JSON.parse(JSON.stringify(n.request));
       applyPriceInputs(ds, req, { price_overrides: a.price_overrides, prices: { isk: { ...market, ...(a.isk ?? {}) } }, price: true });
       const st: any = await calc(req as FitRequest);
-      if (st.price) {
-        const pb = st.price;
-        const isk = (v: number) => `${round(v / 1e6, 2)}M`;
-        const text = [`Fit price (engine; market ${r.source}${r.source === "esi" ? "" : ` ${r.system}`}${r.stale ? ", cached/stale" : ""}): ${isk(pb.total_isk ?? 0)} ISK${pb.complete === false ? ` (${pb.missing?.length ?? 0} items unpriced)` : ""}`, ...Object.entries<any>(pb.sections ?? {}).filter(([, v]) => v?.items?.length).map(([k, v]) => `- ${k}: ${isk(v.total_isk ?? 0)}`)].join("\n");
-        return ok({ priced_by: "engine", market_source: r.source, system: r.system, as_of: r.as_of ? new Date(r.as_of).toISOString() : null, stale: r.stale, price: pb, ...(st.provenance ? { provenance: st.provenance } : {}), notes: [...n.notes, ...r.notes], request_hash: n.hash }, text);
-      }
-      if (a.price_overrides?.length) throw codedError("UNSUPPORTED", "price_overrides need an engine with docs/23 prices (the current engine returns no price block)");
-      // legacy path for engines before docs/23 (no price block): MCP-side sum of market prices
-      const excluded = new Set<string>([
+      const excluded = [
         ...(a.include_drones === false ? ["drones", "fighters"] : []),
         ...(a.include_cargo === false ? ["cargo"] : []),
         ...(a.include_character === false ? ["implants", "boosters"] : []),
-      ]);
+      ];
+      if (st.price) {
+        const pb = st.price;
+        // the toggles are a view over the engine's sections (Pyfa price panel); the engine block itself is unchanged
+        const included = (pb.total_isk ?? 0) - excluded.reduce((s, k) => s + (pb.sections?.[k]?.total_isk ?? 0), 0);
+        const isk = (v: number) => `${round(v / 1e6, 2)}M`;
+        const text = [`Fit price (engine; market ${r.source}${r.source === "esi" ? "" : ` ${r.system}`}${r.stale ? ", cached/stale" : ""}): ${isk(included)} ISK${excluded.length ? ` (without ${excluded.join(", ")}; all: ${isk(pb.total_isk ?? 0)})` : ""}${pb.complete === false ? ` (${pb.missing?.length ?? 0} items unpriced)` : ""}`, ...Object.entries<any>(pb.sections ?? {}).filter(([, v]) => v?.items?.length).map(([k, v]) => `- ${k}: ${isk(v.total_isk ?? 0)}${excluded.includes(k) ? " (excluded)" : ""}`)].join("\n");
+        return ok({ priced_by: "engine", market_source: r.source, system: r.system, as_of: r.as_of ? new Date(r.as_of).toISOString() : null, stale: r.stale, total_isk: round(included, 2), excluded, price: pb, ...(st.provenance ? { provenance: st.provenance } : {}), notes: [...n.notes, ...r.notes], request_hash: n.hash }, text);
+      }
+      if (a.price_overrides?.length) throw codedError("UNSUPPORTED", "price_overrides need an engine with docs/23 prices (the current engine returns no price block)");
+      // legacy path for engines before docs/23 (no price block): MCP-side sum of market prices
+      const excl = new Set<string>(excluded);
       const sections: Record<string, number> = {};
       let total = 0;
       const rows = items.map((i) => {
         const p = a.isk?.[String(i.type_id)] ?? r.prices.get(i.type_id)?.price ?? null;
         const value = p === null ? null : p * i.quantity;
         sections[i.section] = (sections[i.section] ?? 0) + (value ?? 0);
-        if (value !== null && !excluded.has(i.section)) total += value;
+        if (value !== null && !excl.has(i.section)) total += value;
         return { section: i.section, type_id: i.type_id, name: ds.type(i.type_id)?.name ?? String(i.type_id), quantity: i.quantity, unit_price: p, value };
       });
       const isk = (v: number) => `${round(v / 1e6, 2)}M`;
-      const text = [`Fit price (${r.source}${r.source === "esi" ? "" : ` ${r.system}`}${r.stale ? ", cached/stale" : ""}): ${isk(total)} ISK`, ...Object.entries(sections).map(([k, v]) => `- ${k}: ${isk(v)}${excluded.has(k) ? " (excluded)" : ""}`)].join("\n");
+      const text = [`Fit price (${r.source}${r.source === "esi" ? "" : ` ${r.system}`}${r.stale ? ", cached/stale" : ""}): ${isk(total)} ISK`, ...Object.entries(sections).map(([k, v]) => `- ${k}: ${isk(v)}${excl.has(k) ? " (excluded)" : ""}`)].join("\n");
       return ok(
         {
           source: r.source,
@@ -997,7 +1000,7 @@ export function createServer(ctx: ServerDeps): McpServer {
           stale: r.stale,
           total: round(total, 2),
           sections: Object.fromEntries(Object.entries(sections).map(([k, v]) => [k, round(v, 2)])),
-          excluded: [...excluded],
+          excluded: [...excl],
           items: rows,
           missing: rows.filter((x) => x.unit_price === null).map((x) => x.name),
           priced_by: "mcp-legacy",

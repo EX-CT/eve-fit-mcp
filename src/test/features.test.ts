@@ -157,21 +157,45 @@ describe("prices (PRC-001..003): sources, cache, offline", () => {
     after(async () => c?.close());
     test("mcp.features.price-fit: price_fit: Pyfa price panel sections, charges per full load, toggles", async () => {
       const r = await call(c, "price_fit", { eft: RIFTER_EFT });
+      const per = Math.floor(ds!.type(2889)!.capacity / ds!.type(21898)!.volume + 1e-9);
+      const nod = await call(c, "price_fit", { eft: RIFTER_EFT, include_drones: false });
+      assert.deepEqual(nod.excluded, ["drones", "fighters"]);
+      if (r.priced_by === "engine") {
+        // docs/23 price block (engine prices; the MCP injects the market table): eight sections always present,
+        // charges = floor(launcher capacity / charge volume) per loaded module, unpriced lines only in `missing`
+        const p = r.price;
+        assert.equal(r.market_source, "esi");
+        assert.deepEqual(Object.keys(p.sections).sort(), ["boosters", "cargo", "charges", "drones", "fighters", "implants", "modules", "ship"]);
+        assert.equal(p.sections.ship.total_isk, 500000);
+        assert.equal(p.sections.ship.items[0].kind, "ship");
+        assert.equal(p.sections.modules.total_isk, 300000);
+        const ch = p.sections.charges.items.filter((x: any) => x.type_id === 21898);
+        assert.equal(ch.length, 3);
+        for (const x of ch) assert.equal(x.quantity, per), assert.equal(x.unit_isk, 50), assert.equal(x.source, "injected");
+        assert.equal(p.sections.charges.total_isk, 50 * 3 * per);
+        assert.equal(p.sections.drones.total_isk, 20000);
+        assert.equal(p.sections.fighters.total_isk, 0);
+        assert.equal(p.total_isk, 500000 + 300000 + 50 * 3 * per + 20000, "unpriced items (paste, plates, …) are listed in missing, not in the total");
+        assert.equal(r.total_isk, p.total_isk);
+        assert.equal(p.complete, false);
+        assert.ok(p.missing.some((x: any) => x.name === "Damage Control II" && x.reason === "no_price"));
+        assert.ok(p.missing.some((x: any) => x.name === "Nanite Repair Paste"));
+        assert.equal(nod.total_isk, p.total_isk - 20000);
+        assert.equal(nod.price.total_isk, p.total_isk, "the engine block is unchanged; the toggle only changes total_isk");
+        return;
+      }
       assert.equal(r.source, "esi");
       assert.equal(r.sections.ship, 500000);
       assert.equal(r.sections.fittings, 300000);
       const ch = r.items.find((x: any) => x.section === "charges" && x.type_id === 21898);
-      const per = Math.floor(ds!.type(2889)!.capacity / ds!.type(21898)!.volume + 1e-9);
       assert.equal(ch.quantity, 3 * per);
       assert.equal(ch.value, 50 * 3 * per);
       assert.equal(r.sections.drones, 20000);
       assert.equal(r.total, 500000 + 300000 + 50 * 3 * per + 20000, "unpriced items (paste, plates, …) add 0");
       assert.ok(r.items.some((x: any) => x.section === "charges" && x.name === "Nanite Repair Paste" && x.unit_price === null));
       assert.ok(r.missing.includes("Damage Control II"));
-      const nod = await call(c, "price_fit", { eft: RIFTER_EFT, include_drones: false });
       assert.equal(nod.total, r.total - 20000);
-      assert.deepEqual(nod.excluded, ["drones", "fighters"]);
-      assert.equal(r.priced_by, "mcp-legacy", "engine 2da8150 has no docs/23 price block");
+      assert.equal(r.priced_by, "mcp-legacy");
     });
     test("mcp.features.price-fit-engine: price_fit hands market prices (+ own isk) and overrides to the engine; legacy sum only for old engines", async () => {
       const own = await call(c, "price_fit", { eft: RIFTER_EFT, isk: { "2048": 900000 } });

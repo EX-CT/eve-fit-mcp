@@ -10,6 +10,13 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { splitWords } from "../adapters/cmd.js";
 import { call, connect, DATASET, GO_BIN, haveEngine, MAIN, RIFTER_EFT, ENGINE_BIN } from "./helpers.js";
 
+/** Variant C predates the stats-ext outputs (mining, outgoing, bombing, heat, probe_size): compare the metrics it does return. */
+function sameShared(c: Record<string, number | null>, f: Record<string, number | null>, msg?: string) {
+  const keys = Object.keys(c).filter((k) => c[k] !== null);
+  assert.ok(keys.length >= 30, `variant C returned only ${keys.length} metrics`);
+  assert.deepEqual(Object.fromEntries(keys.map((k) => [k, c[k]])), Object.fromEntries(keys.map((k) => [k, f[k]])), msg);
+}
+
 test("mcp.adapters.command-split: command templates split like a shell", () => {
   assert.deepEqual(splitWords(`a --x "b c" 'd e' f\\ g`), ["a", "--x", "b c", "d e", "f g"]);
   assert.deepEqual(splitWords(`""`), [""]);
@@ -55,7 +62,7 @@ describe("adapters", { skip: !haveEngine && "engine or dataset missing" }, () =>
       const info = await call(c, "engine_info", {});
       assert.match(info.engine.engine, /go/i);
       const r = await call(c, "compute_fit", { eft: RIFTER_EFT });
-      assert.deepEqual(r.metrics, base.metrics, "engines agree");
+      sameShared(r.metrics, base.metrics, "engines agree");
       const eft = (await call(c, "export_fit", { eft: RIFTER_EFT, format: "eft", name: "x" })).text;
       const eftRs = (await call(rpc, "export_fit", { eft: RIFTER_EFT, format: "eft", name: "x" })).text;
       assert.equal(eft, eftRs);
@@ -83,7 +90,7 @@ describe("adapters", { skip: !haveEngine && "engine or dataset missing" }, () =>
         assert.equal(info.adapter, "http");
         assert.equal(info.dataset_match, true);
         const r = await call(c, "compute_fit", { eft: RIFTER_EFT });
-        assert.deepEqual(r.metrics, base.metrics);
+        sameShared(r.metrics, base.metrics);
         const s = await call(c, "suggest_modules", { eft: RIFTER_EFT, replace_index: 1, goal: "dps", top: 3 });
         const one = await call(rpc, "suggest_modules", { eft: RIFTER_EFT, replace_index: 1, goal: "dps", top: 3 });
         assert.deepEqual(s.suggestions, one.suggestions);

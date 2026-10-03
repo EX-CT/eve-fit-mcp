@@ -7,6 +7,14 @@
 # `eve-dogma` (frozen), C = eve-dogma-go, ...
 # 1dc951b: eft_parse uses Pyfa's default module states (the MCP's interim EFT workaround is gone; regression test in
 # src/test/integration.test.ts).
+# 2da8150 (eve-dogma main, bench 1.11: core 339/339, ext 202/202, graphs 178/178): stats-ext outputs `mining`,
+# `outgoing` (remote repair / cap transfer, current + spool min/max), `bombing`, `modules[].heat`,
+# `drones.items[]`/`fighters.items[]` hp/ehp, `targeting.probe_size`, full Pyfa validity codes (CHARGE_*,
+# MISSING_SKILL with skill_type_id/level, MAX_TYPE_FITTED, ...) and `options.validate:false`.
 VARIANT_F_REPO=EX-CT/eve-dogma
-VARIANT_F_SHA=1dc951bb2ed377055a3262b4a301b790cc509444
+VARIANT_F_SHA=2da81501b85dfa216857a2e7a5c59043dadc5937
 VARIANT_F_PACKAGE=eve-cli
+# Bench cases replayed through the MCP by tools/mcp-dogma-bench.py in CI (compute_fit detail:"full" vs expected):
+# EX-CT/eve-dogma-bench pending-1.11 (core cases/ + ext/ suites, inventory/mcp-web-gaps.md).
+DOGMA_BENCH_REPO=EX-CT/eve-dogma-bench
+DOGMA_BENCH_SHA=1a8be053df601b3f0ff6b4860d4fb3002ba5b8de

@@ -72,7 +72,7 @@
   {
     "name": "compute_fit",
     "title": "Compute fit stats",
-    "description": "Full Pyfa-parity statistics for a fit: DPS/volley (per weapon, drones, fighters, applied vs a target profile), EHP/resists/tank, capacitor simulation, speed/align/signature/warp, targeting (incl. probe size), mining yield, outgoing remote repair / cap transfer (with spool range), bombs needed to kill the fit, overheat burnout per module, resources and validity (violations with fix hints; options.validate=false skips the checks). Illegal fits are still computed in full. detail=summary (default) returns a compact view + named metrics; detail=full returns the engine output (optionally only `sections`).",
+    "description": "Full Pyfa-parity statistics for a fit: DPS/volley (per weapon, drones, fighters, applied vs a target profile), EHP/resists/tank, capacitor simulation, speed/align/signature/warp, targeting (incl. probe size), mining yield, outgoing remote repair / cap transfer (with spool range), bombs needed to kill the fit, overheat burnout per module, resources and validity (violations with fix hints; options.validate=false skips the checks). Illegal fits are still computed in full. Prices (docs/23, computed by the engine): price_overrides (by type / market group / group / category; fixed price incl. 0, or multiplier), prices.isk (injected) and price=true return the engine's `price` block (total, sections, per-item lines with source, missing). detail=summary (default) returns a compact view + named metrics; detail=full returns the engine output (optionally only `sections`).",
     "annotations": {
       "readOnlyHint": true,
       "idempotentHint": true,

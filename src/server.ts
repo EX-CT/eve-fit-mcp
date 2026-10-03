@@ -16,7 +16,8 @@ import { DAMAGE_PROFILES, implantSets, SKILL_PRESETS, TARGET_PROFILES, targetPro
 import { describeGraphs, graphSpecs, pickAxes, sampleX, summarizeSeries, TARGET_GRAPHS } from "./graphs.js";
 import { browseMarket, typeMarket, typeRow } from "./market.js";
 import { fitItems, HUBS, PriceService, priceConfig, SOURCES } from "./prices.js";
-import { Change, Constraints, fitInputShape, FitInputObject, FitRequestLenient, GoalSpec, z } from "./schemas.js";
+import { Change, Constraints, fitInputShape, FitInputObject, FitRequestLenient, GoalSpec, priceInputShape, z } from "./schemas.js";
+import { applyPriceInputs } from "./pricing-input.js";
 import { markdownTable, pickSections, SECTIONS, summarize } from "./summary.js";
 
 export const VERSION = "0.3.1";
@@ -295,19 +296,22 @@ export function createServer(ctx: ServerDeps): McpServer {
     {
       title: "Compute fit stats",
       description:
-        "Full Pyfa-parity statistics for a fit: DPS/volley (per weapon, drones, fighters, applied vs a target profile), EHP/resists/tank, capacitor simulation, speed/align/signature/warp, targeting (incl. probe size), mining yield, outgoing remote repair / cap transfer (with spool range), bombs needed to kill the fit, overheat burnout per module, resources and validity (violations with fix hints; options.validate=false skips the checks). Illegal fits are still computed in full. detail=summary (default) returns a compact view + named metrics; detail=full returns the engine output (optionally only `sections`).",
+        "Full Pyfa-parity statistics for a fit: DPS/volley (per weapon, drones, fighters, applied vs a target profile), EHP/resists/tank, capacitor simulation, speed/align/signature/warp, targeting (incl. probe size), mining yield, outgoing remote repair / cap transfer (with spool range), bombs needed to kill the fit, overheat burnout per module, resources and validity (violations with fix hints; options.validate=false skips the checks). Illegal fits are still computed in full. Prices (docs/23, computed by the engine): price_overrides (by type / market group / group / category; fixed price incl. 0, or multiplier), prices.isk (injected) and price=true return the engine's `price` block (total, sections, per-item lines with source, missing). detail=summary (default) returns a compact view + named metrics; detail=full returns the engine output (optionally only `sections`).",
       inputSchema: {
         ...fitInputShape,
         detail: z.enum(["summary", "full"]).optional(),
         sections: z.array(z.enum(SECTIONS)).optional().describe("with detail=full: only these top-level sections"),
         include_request: z.boolean().optional().describe("echo the normalised FitRequest"),
         options: z.record(z.string(), z.any()).optional().describe("engine options merged into the request (factor_reload, default_spool, rah, validate, include_attributes, cap_sim…)"),
+        ...priceInputShape,
       },
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
     },
     wrap(async (a) => {
       const n = await norm(a);
       if (a.options) n.request.options = { ...((n.request as any).options ?? {}), ...a.options };
+      // docs/23 prices: passed to the engine, which returns the `price` block (and `provenance`) itself
+      applyPriceInputs(ds, n.request as Record<string, any>, a);
       const s = await calc(n.request);
       const body: Record<string, unknown> =
         a.detail === "full" ? (a.sections?.length ? pickSections(s, a.sections) : s) : summarize(ds, n.request, s);

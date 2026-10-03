@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "compute_fit",
-  "description": "Full Pyfa-parity statistics for a fit: DPS/volley (per weapon, drones, fighters, applied vs a target profile), EHP/resists/tank, capacitor simulation, speed/align/signature/warp, targeting (incl. probe size), mining yield, outgoing remote repair / cap transfer (with spool range), bombs needed to kill the fit, overheat burnout per module, resources and validity (violations with fix hints; options.validate=false skips the checks). Illegal fits are still computed in full. detail=summary (default) returns a compact view + named metrics; detail=full returns the engine output (optionally only `sections`).",
+  "description": "Full Pyfa-parity statistics for a fit: DPS/volley (per weapon, drones, fighters, applied vs a target profile), EHP/resists/tank, capacitor simulation, speed/align/signature/warp, targeting (incl. probe size), mining yield, outgoing remote repair / cap transfer (with spool range), bombs needed to kill the fit, overheat burnout per module, resources and validity (violations with fix hints; options.validate=false skips the checks). Illegal fits are still computed in full. Prices (docs/23, computed by the engine): price_overrides (by type / market group / group / category; fixed price incl. 0, or multiplier), prices.isk (injected) and price=true return the engine's `price` block (total, sections, per-item lines with source, missing). detail=summary (default) returns a compact view + named metrics; detail=full returns the engine output (optionally only `sections`).",
   "type": "object",
   "properties": {
     "fit": {
@@ -574,7 +574,9 @@
           "bombing",
           "violations",
           "warnings",
-          "attributes"
+          "attributes",
+          "price",
+          "provenance"
         ]
       }
     },
@@ -589,6 +591,85 @@
         "type": "string"
       },
       "additionalProperties": {}
+    },
+    "price_overrides": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type_id": {
+            "description": "type id or name",
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "market_group_id": {
+            "description": "market group id or path (includes child groups)",
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "group_id": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "category_id": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "price": {
+            "description": "fixed ISK per unit (0 = free, e.g. self-built / own stock)",
+            "type": "number"
+          },
+          "multiplier": {
+            "description": "factor on the price from the next lower layer",
+            "type": "number"
+          }
+        },
+        "additionalProperties": {}
+      },
+      "description": "docs/23 §5.1: exactly one target and one of price / multiplier per entry; most specific target wins"
+    },
+    "prices": {
+      "type": "object",
+      "properties": {
+        "isk": {
+          "description": "type id -> ISK per unit (injected prices, layer L3)",
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": "number"
+          }
+        },
+        "use_snapshot": {
+          "description": "false: ignore the engine's market snapshot (default true)",
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": {},
+      "description": "docs/23 §5.3 injected prices"
+    },
+    "price": {
+      "description": "ask the engine for the price block (total, per section / item, source of each price, missing)",
+      "type": "boolean"
     }
   }
 }

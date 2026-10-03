@@ -9,6 +9,7 @@ import { loadConfig } from "../config.js";
 import { Dataset } from "../dataset.js";
 import { exportDna, parseDna } from "../dna.js";
 import { normalizeFit, requestHash } from "../fit.js";
+import { applyPriceInputs } from "../pricing-input.js";
 import { goalScore, metric } from "../metrics.js";
 import { implantSets } from "../profiles.js";
 import { DATASET } from "./helpers.js";
@@ -97,6 +98,28 @@ describe("dataset index", { skip: !existsSync(DATASET) && "dataset missing" }, (
     assert.deepEqual(r.projected[0].fit.projected, []);
     // a non-empty nested list is still an error (the contract allows one level)
     await assert.rejects(normalizeFit(ctx, { fit: { ship: "Rifter", projected: [{ kind: "fit", fit: { ...inner, projected: [{ kind: "fit", fit: inner }] } }] } }), /cannot nest/);
+  });
+
+  test("mcp.unit.price-inputs: docs/23 price_overrides / prices / price go onto the FitRequest; names resolved, no pricing math", () => {
+    const req: Record<string, any> = { ship: { type_id: 587 }, options: { validate: true } };
+    applyPriceInputs(ds, req, {
+      price_overrides: [{ type_id: "Rifter", price: 0 }, { type_id: 2873, multiplier: 0.9 }, { group_id: 55, price: 250000 }, { category_id: 8, multiplier: 1.1 }],
+      prices: { isk: { "587": 350000 }, use_snapshot: false },
+      price: true,
+    });
+    assert.deepEqual(req.price_overrides, [{ type_id: 587, price: 0 }, { type_id: 2873, multiplier: 0.9 }, { group_id: 55, price: 250000 }, { category_id: 8, multiplier: 1.1 }]);
+    assert.deepEqual(req.prices, { isk: { "587": 350000 }, use_snapshot: false });
+    assert.deepEqual(req.options, { validate: true, price: true });
+    if (ds.marketGroups.size) {
+      const r: Record<string, any> = {};
+      applyPriceInputs(ds, r, { price_overrides: [{ market_group_id: "Ship Equipment", multiplier: 0.9 }] });
+      assert.equal(r.price_overrides[0].market_group_id, 9);
+    }
+    // malformed entries are the engine's to judge (BAD_PRICE_OVERRIDE); only a non-list is rejected here
+    assert.throws(() => applyPriceInputs(ds, {}, { price_overrides: {} as never }), (e: any) => e.code === "BAD_PRICE_OVERRIDE");
+    const untouched: Record<string, any> = { ship: { type_id: 587 } };
+    applyPriceInputs(ds, untouched, {});
+    assert.deepEqual(untouched, { ship: { type_id: 587 } });
   });
 
   // projected fighters without a quantity became 1 fighter; the engine's default is the full squadron

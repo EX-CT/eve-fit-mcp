@@ -3,7 +3,7 @@ import type { FitRequest, FitStats } from "./adapters/types.js";
 import type { Dataset } from "./dataset.js";
 import { METRICS, round } from "./metrics.js";
 
-export const SECTIONS = ["meta", "ship", "resources", "modules", "offense", "defense", "capacitor", "navigation", "targeting", "drones", "fighters", "mining", "outgoing", "bombing", "violations", "warnings", "attributes"] as const;
+export const SECTIONS = ["meta", "ship", "resources", "modules", "offense", "defense", "capacitor", "navigation", "targeting", "drones", "fighters", "mining", "outgoing", "bombing", "violations", "warnings", "attributes", "price", "provenance"] as const;
 
 const r1 = (v: unknown, d = 2) => (typeof v === "number" && Number.isFinite(v) ? round(v, d) : v ?? null);
 const pct = (res: any) =>
@@ -152,6 +152,9 @@ export function summarize(ds: Dataset, req: FitRequest, s: FitStats) {
     },
     violations: describeViolations(ds, req, s),
     warnings: st.warnings ?? [],
+    // docs/23 §6: the engine's price block and provenance, verbatim (present only when prices were asked for)
+    ...(st.price !== undefined ? { price: st.price } : {}),
+    ...(st.provenance !== undefined ? { provenance: st.provenance } : {}),
     metrics,
   };
 }

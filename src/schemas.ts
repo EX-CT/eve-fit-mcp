@@ -122,3 +122,28 @@ export const Change = z
   .passthrough();
 
 export { KINDS, SLOTS, z };
+
+// ---- docs/23 price inputs (passed through to the engine; the engine resolves layers and builds the price block)
+export const PriceOverride = z
+  .object({
+    type_id: z.union([z.number().int(), z.string()]).optional().describe("type id or name"),
+    market_group_id: z.union([z.number().int(), z.string()]).optional().describe("market group id or path (includes child groups)"),
+    group_id: z.number().int().optional(),
+    category_id: z.number().int().optional(),
+    price: z.number().optional().describe("fixed ISK per unit (0 = free, e.g. self-built / own stock)"),
+    multiplier: z.number().optional().describe("factor on the price from the next lower layer"),
+  })
+  .passthrough();
+export const PriceOverrides = z.array(PriceOverride).describe("docs/23 §5.1: exactly one target and one of price / multiplier per entry; most specific target wins");
+export const PricesInput = z
+  .object({
+    isk: z.record(z.string(), z.number()).optional().describe("type id -> ISK per unit (injected prices, layer L3)"),
+    use_snapshot: z.boolean().optional().describe("false: ignore the engine's market snapshot (default true)"),
+  })
+  .passthrough()
+  .describe("docs/23 §5.3 injected prices");
+export const priceInputShape = {
+  price_overrides: PriceOverrides.optional(),
+  prices: PricesInput.optional(),
+  price: z.boolean().optional().describe("ask the engine for the price block (total, per section / item, source of each price, missing)"),
+};

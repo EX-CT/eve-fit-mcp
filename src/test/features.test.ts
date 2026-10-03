@@ -219,6 +219,24 @@ describe("graphs and passthrough features (engine)", { skip: !haveEngine && "eng
     assert.deepEqual(empty.series, { dps: [], volley: [] });
   });
 
+  test("mcp.features.price-passthrough: compute_fit sends docs/23 price inputs to the engine and returns its price block verbatim", async (t) => {
+    const r = await call(c, "compute_fit", {
+      fit: { ship: "Rifter", modules: ["125mm Gatling AutoCannon II, EMP S"] },
+      price_overrides: [{ type_id: "125mm Gatling AutoCannon II", price: 0 }, { category_id: 6, multiplier: 0.9 }],
+      prices: { isk: { "587": 350000, "2873": 1250000 } },
+      price: true,
+      include_request: true,
+    });
+    assert.deepEqual(r.request.price_overrides, [{ type_id: 2873, price: 0 }, { category_id: 6, multiplier: 0.9 }]);
+    assert.deepEqual(r.request.prices, { isk: { "587": 350000, "2873": 1250000 } });
+    assert.equal(r.request.options.price, true);
+    if (r.price === undefined) return t.todo("engine without docs/23 prices (eve-dogma 2da8150): no price block yet");
+    // engine semantics (docs/23 §5.2): gun fixed 0 (L2), ship 0.9 x injected 350000
+    assert.equal(r.price.sections.ship.items[0].unit_isk, 315000);
+    assert.equal(r.price.sections.modules.items[0].unit_isk, 0);
+    assert.equal(r.price.sections.modules.items[0].source, "override:type");
+  });
+
   test("mcp.features.compute-graph-stats: compute_graph: lock time and mobility agree with the fit stats; damage vs a target profile", async (t) => {
     if (!graphs) return t.skip("engine has no graph RPC");
     const full = await call(c, "compute_fit", { eft: RIFTER_EFT, detail: "full", sections: ["targeting", "navigation"] });

@@ -1,9 +1,9 @@
 # Default engine of eve-fit-mcp (CI builds it from here; README install instructions use the same commit).
-# Mainline = Rust based on variant F: eve-dogma-lab branch variant-f (orphan branch, crate in variant-f/), native build,
-# binary eve-dogma-f, LGPL-3.0-or-later. Bench 1.8.0: 326/326 cases. The SDE dataset is compiled in at build time
+# Mainline = Rust based on variant F: eve-dogma-lab branch variant-f-features (crate in variant-f/), native build,
+# binary eve-dogma-f, LGPL-3.0-or-later. Bench 1.9.0: 331/331 cases; includes the graph layer (CONTRACT-GRAPHS 0.2). The SDE dataset is compiled in at build time
 # (EVE_DOGMA_DATASET must point at the same dataset-<build>.json.gz the MCP index uses).
 # Other engines stay selectable with EVE_DOGMA_BIN (A = eve-dogma-rs `eve-dogma`, frozen; C = eve-dogma-go; ...).
-# TODO (later, not now): when F's variant-f-features branch (breacher pod pure damage, void bombs, mutated modules,
-# merged graphs) is merged and passes bench 1.9.0, bump this pin (and the README install command).
+# TODO: when F's bot migrates F to EX-CT/eve-dogma, repoint VARIANT_F_REPO/VARIANT_F_SHA (and the README install command)
+# to that repo.
 VARIANT_F_REPO=EX-CT/eve-dogma-lab
-VARIANT_F_SHA=af1c04b50c1ca866de3680ae721bd9ca02497f41
+VARIANT_F_SHA=4b8f5f981c348fab50e0ad8abc44d3eec3b62d5c

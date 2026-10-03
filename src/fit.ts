@@ -228,7 +228,7 @@ export async function normalizeFit(ctx: Ctx, input: FitInput): Promise<Normalize
     base = await ctx.engine.eftParse(input.eft);
     // EFT carries no module state except /OFFLINE, so the state an engine's eft_parse assigns is only a default.
     // Apply the MCP's own default (the one DNA and lenient JSON use) so EFT, DNA and JSON give the same fit on every
-    // engine (variant F's eft_parse at af1c04b leaves turrets/launchers "online", i.e. 0 weapon dps).
+    // engine (variant F's eft_parse leaves turrets/launchers "online", i.e. 0 weapon dps).
     for (const m of base?.modules ?? []) {
       const t = typeof m?.type_id === "number" ? ctx.ds.type(m.type_id) : undefined;
       if (t && m.state !== "offline") m.state = defaultState(ctx.ds, t);

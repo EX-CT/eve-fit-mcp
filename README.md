@@ -6,7 +6,7 @@ scenarios, and let a batch-evaluating optimiser suggest modules.
 
 It is **engine-agnostic**. Numbers come from any engine that implements the stateless
 [eve-dogma contract](https://github.com/EX-CT/eve-dogma-rs/blob/main/docs/contract.md):
-**variant F** (`eve-dogma-f`, Rust, the mainline engine; native build of `eve-dogma-lab` `variant-f` at the commit
+**variant F** (`eve-dogma-f`, Rust, the mainline engine; native build of `eve-dogma-lab` `variant-f-features` at the commit
 pinned in [`engines.lock`](engines.lock), LGPL-3.0-or-later) by default, or any other contract engine via
 `EVE_DOGMA_BIN`: `eve-dogma-rs` (`eve-dogma`, variant A, frozen), the Go variant C, and so on. The engine runs
 behind a pluggable adapter:
@@ -78,7 +78,7 @@ straight from the release.
 
    ```bash
    EVE_DOGMA_DATASET=/path/to/dataset.json.gz cargo install --locked \
-     --git https://github.com/EX-CT/eve-dogma-lab --rev af1c04b50c1ca866de3680ae721bd9ca02497f41 eve-dogma-f
+     --git https://github.com/EX-CT/eve-dogma-lab --rev 4b8f5f981c348fab50e0ad8abc44d3eec3b62d5c eve-dogma-f
    ```
 
    Any other contract engine works through `EVE_DOGMA_BIN`, e.g. eve-dogma-rs (variant A, frozen):
@@ -221,9 +221,8 @@ against it (only the variant C suites skip there). They cover:
 * a bad engine binary;
 * Streamable HTTP.
 
-TODO (later, not now): when F's `variant-f-features` branch (breacher pod pure damage, void bombs, mutated
-modules, merged graphs) is merged and passes bench 1.9.0, bump `VARIANT_F_SHA` in `engines.lock` and the install
-command above.
+TODO: when F's bot migrates F to EX-CT/eve-dogma, repoint `VARIANT_F_REPO` / `VARIANT_F_SHA` in `engines.lock` and the
+install command above to that repo.
 
 ## Design notes
 * **Stateless.** Every call carries the whole fit. Notes say what was assumed (e.g. skills).

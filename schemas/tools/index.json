@@ -232,7 +232,7 @@
   {
     "name": "price_fit",
     "title": "Fit price",
-    "description": "Price a fit like Pyfa's price panel: ship, fittings (modules), charges (loaded, a full module load each), drones, fighters, cargo, implants and boosters, with per-item price and quantity (price column) and the total. Toggles leave drones/fighters, cargo or implants/boosters out of the total. Same sources and caching as get_prices.",
+    "description": "Price a fit like Pyfa's price panel: ship, fittings (modules), charges (loaded, a full module load each), drones, fighters, cargo, implants and boosters, with per-item price and quantity (price column) and the total. Toggles leave drones/fighters, cargo or implants/boosters out of the total. Same sources and caching as get_prices. On a docs/23 engine the engine prices the fit: market prices (+ your isk) are injected, items without one fall back to the engine's embedded snapshot (use_snapshot=false to disable), each line names its source, and `provenance` says which SDE / price data was used.",
     "annotations": {
       "readOnlyHint": true,
       "idempotentHint": true,

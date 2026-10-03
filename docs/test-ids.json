@@ -108,6 +108,14 @@
    ]
   },
   {
+   "id": "mcp.features.provenance",
+   "description": "compute_fit and compute_batch return the engine's provenance (sde_build, sde_hash, price_source, snapshot_time)",
+   "file": "src/test/features.test.ts",
+   "inventory": [
+    "ENG-PRICE-001"
+   ]
+  },
+  {
    "id": "mcp.features.compute-batch",
    "description": "compute_batch passes the BatchRequest to the engine; results equal compute_fit one by one",
    "file": "src/test/features.test.ts",

@@ -14,8 +14,11 @@
 # 197223f (eve-dogma main, CI green): docs/23 batch API (RPC `batch`) + engine prices (`price_overrides`, `prices`,
 # `price` block); effects 2378/2378 (1ebaa1f); dataset r5 tables (d55fadb). Calc output unchanged without price inputs.
 # MCP compute_batch / price passthrough / price_fit engine path are checked for real on it (CI fails on their TODO).
+# 8bde0ba (eve-dogma main, CI green): docs/22 §2.3 `provenance` on every calc / batch result (sde_build, sde_hash,
+# price_source, snapshot_time, …), embedded eve-market-prices snapshot jita44-20261003T063856Z (price layer L4; price_fit
+# falls back to it unless use_snapshot=false), JCS content_hash, global --sde/--prices, version / sde_override RPC.
 VARIANT_F_REPO=EX-CT/eve-dogma
-VARIANT_F_SHA=197223f2837b9f42648b5afedc1a4e6a7feb2d06
+VARIANT_F_SHA=8bde0ba83c19c31267c88ae1b572b2baab2f3b0b
 VARIANT_F_PACKAGE=eve-cli
 # Bench cases replayed through the MCP by tools/mcp-dogma-bench.py in CI (compute_fit detail:"full" vs expected):
 # EX-CT/eve-dogma-bench pending-1.11 (core cases/, ext/, effects/ suites; inventory/mcp-web-gaps.md) and the cap-suite

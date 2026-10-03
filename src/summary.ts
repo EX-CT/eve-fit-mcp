@@ -152,7 +152,8 @@ export function summarize(ds: Dataset, req: FitRequest, s: FitStats) {
     },
     violations: describeViolations(ds, req, s),
     warnings: st.warnings ?? [],
-    // docs/23 §6: the engine's price block and provenance, verbatim (present only when prices were asked for)
+    // docs/23 §6: the engine's price block (only when prices were asked for) and docs/22 §2.3 provenance (sde_build,
+    // sde_hash, price_source, snapshot_time, …; on every result since eve-dogma 8bde0ba), verbatim
     ...(st.price !== undefined ? { price: st.price } : {}),
     ...(st.provenance !== undefined ? { provenance: st.provenance } : {}),
     metrics,

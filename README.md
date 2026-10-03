@@ -86,7 +86,7 @@ straight from the release.
 
    ```bash
    EVE_DOGMA_DATASET=/path/to/dataset.json.gz cargo install --locked \
-     --git https://github.com/EX-CT/eve-dogma --rev 197223f2837b9f42648b5afedc1a4e6a7feb2d06 eve-cli   # installs eve-fit
+     --git https://github.com/EX-CT/eve-dogma --rev 8bde0ba83c19c31267c88ae1b572b2baab2f3b0b eve-cli   # installs eve-fit
    ```
 
    Any other contract engine works through `EVE_DOGMA_BIN`, e.g. eve-dogma-rs (variant A, frozen):
@@ -206,6 +206,13 @@ Prices are computed by the **engine** (EX-CT/eve-fit-docs docs/22 / docs/23): `p
 injected prices (`prices.isk`) > the engine's market snapshot (Jita 4-4 sell band rule, made by
 [EX-CT/eve-market-prices](https://github.com/EX-CT/eve-market-prices)). The MCP only resolves names to ids and passes the
 fields through (`compute_fit`, `compute_batch`, `price_fit`); it does no pricing math once the engine returns a `price` block.
+
+`price_fit` injects the live market table, so the engine's embedded snapshot (eve-dogma 8bde0ba+: `jita44-20261003T063856Z`)
+only fills items without a market price (`use_snapshot: false` leaves them unpriced); every line names its `source`.
+Every engine result carries **`provenance`** (docs/22 §2.3: `sde_build`, `sde_hash`, `sde_source`, `price_source`
+`request` / `file` / `snapshot` / `none`, `snapshot_time`, `price_snapshot_id`, `price_hash`, `engine`). `compute_fit`
+returns it in the summary and as a `detail=full` section, `compute_batch` at the top level and per result (and in its
+table header), `price_fit` next to the price block.
 
 Errors from the engine keep their contract code verbatim (`Error: UNKNOWN_TYPE: …`, `BAD_PRICE_OVERRIDE`, `BATCH_TOO_LARGE`, …);
 input errors found by the MCP itself are `BAD_REQUEST`.

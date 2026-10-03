@@ -156,9 +156,10 @@ describe("prices (PRC-001..003): sources, cache, offline", () => {
     });
     after(async () => c?.close());
     test("mcp.features.price-fit: price_fit: Pyfa price panel sections, charges per full load, toggles", async () => {
-      const r = await call(c, "price_fit", { eft: RIFTER_EFT });
+      // use_snapshot:false: only the (mocked) market prices, so the numbers are exact; the snapshot fallback is checked below
+      const r = await call(c, "price_fit", { eft: RIFTER_EFT, use_snapshot: false });
       const per = Math.floor(ds!.type(2889)!.capacity / ds!.type(21898)!.volume + 1e-9);
-      const nod = await call(c, "price_fit", { eft: RIFTER_EFT, include_drones: false });
+      const nod = await call(c, "price_fit", { eft: RIFTER_EFT, include_drones: false, use_snapshot: false });
       assert.deepEqual(nod.excluded, ["drones", "fighters"]);
       if (r.priced_by === "engine") {
         // docs/23 price block (engine prices; the MCP injects the market table): eight sections always present,
@@ -182,6 +183,15 @@ describe("prices (PRC-001..003): sources, cache, offline", () => {
         assert.ok(p.missing.some((x: any) => x.name === "Nanite Repair Paste"));
         assert.equal(nod.total_isk, p.total_isk - 20000);
         assert.equal(nod.price.total_isk, p.total_isk, "the engine block is unchanged; the toggle only changes total_isk");
+        if (r.provenance?.price_snapshot_id !== undefined) {
+          // docs/22: an engine with an embedded snapshot fills items without a market price from it (layer L4)
+          assert.equal(r.provenance.price_source, "request", "the MCP's market table is the request's base table");
+          const d = await call(c, "price_fit", { eft: RIFTER_EFT });
+          const dc = d.price.sections.modules.items.find((x: any) => x.name === "Damage Control II");
+          assert.ok(dc && dc.source === "snapshot" && dc.unit_isk > 0, JSON.stringify(dc));
+          assert.equal(d.price.sections.ship.items[0].source, "injected", "market price wins over the snapshot");
+          assert.ok(d.total_isk > p.total_isk);
+        }
         return;
       }
       assert.equal(r.source, "esi");
@@ -277,6 +287,25 @@ describe("graphs and passthrough features (engine)", { skip: !haveEngine && "eng
     assert.equal(r.price.sections.ship.items[0].unit_isk, 315000);
     assert.equal(r.price.sections.modules.items[0].unit_isk, 0);
     assert.equal(r.price.sections.modules.items[0].source, "override:type");
+  });
+
+  test("mcp.features.provenance: compute_fit and compute_batch return the engine's provenance (sde_build, sde_hash, price_source, snapshot_time)", async (t) => {
+    const f = await call(c, "compute_fit", { eft: RIFTER_EFT });
+    if (f.provenance === undefined) return t.todo("engine without docs/23 provenance (eve-dogma before 8bde0ba)");
+    for (const k of ["sde_build", "sde_hash", "price_source", "snapshot_time"]) assert.ok(k in f.provenance, k);
+    assert.equal(f.provenance.sde_build, ds!.sdeBuild);
+    assert.match(f.provenance.sde_hash, /^sha256:[0-9a-f]{64}$/);
+    const full = await call(c, "compute_fit", { eft: RIFTER_EFT, detail: "full", sections: ["provenance"] });
+    assert.deepEqual(full.provenance, f.provenance);
+    const req = await call(c, "compute_fit", { eft: RIFTER_EFT, prices: { isk: { "587": 1 } } });
+    assert.equal(req.provenance.price_source, "request");
+    assert.equal(req.provenance.snapshot_time, null);
+    const r: any = await c.callTool({ name: "compute_batch", arguments: { request: { fits: [{ id: "a", fit: RIFTER_EFT }, { id: "b", fit: RIFTER_EFT }], fields: ["navigation.max_velocity_m_s"] } } });
+    assert.ok(!r.isError, r.content?.[0]?.text);
+    const b = r.structuredContent;
+    assert.deepEqual(b.provenance, f.provenance, "batch top level = the session's provenance");
+    assert.ok(b.results.every((x: any) => x.provenance && x.provenance.sde_hash === f.provenance.sde_hash));
+    assert.ok(r.content.some((x: any) => x.type === "text" && /provenance: sde_build \d+ \(sha256:/.test(x.text)), "table shows provenance");
   });
 
   test("mcp.features.compute-batch: compute_batch passes the BatchRequest to the engine; results equal compute_fit one by one", async (t) => {

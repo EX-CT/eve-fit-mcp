@@ -41,6 +41,7 @@ INVENTORY = {
     "mcp.unit.price-inputs": ["ENG-PRICE-001"],
     "mcp.features.price-passthrough": ["ENG-PRICE-001", "PRC-003"],
     "mcp.features.price-fit-engine": ["ENG-PRICE-001", "PRC-002", "PRC-003"],
+    "mcp.features.provenance": ["ENG-PRICE-001"],
     "mcp.unit.batch-prepare": ["ENG-BATCH-001"],
     "mcp.unit.batch-table": ["ENG-BATCH-001"],
     "mcp.features.compute-batch": ["ENG-BATCH-001"],

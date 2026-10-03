@@ -31,6 +31,7 @@ through `compute_fit detail:"full"`, case ids `mcp-bench.<suite>.<case>`, must m
 | `mcp.features.list-graphs` | list_graphs: the 10 Pyfa graphs, CONTRACT-GRAPHS 0.2 |  |
 | `mcp.features.contract-error-codes` | engine error codes pass through verbatim; MCP input errors are BAD_REQUEST |  |
 | `mcp.features.price-passthrough` | compute_fit sends docs/23 price inputs to the engine and returns its price block verbatim | ENG-PRICE-001, PRC-003 |
+| `mcp.features.provenance` | compute_fit and compute_batch return the engine's provenance (sde_build, sde_hash, price_source, snapshot_time) | ENG-PRICE-001 |
 | `mcp.features.compute-batch` | compute_batch passes the BatchRequest to the engine; results equal compute_fit one by one | ENG-BATCH-001 |
 | `mcp.features.compute-graph-stats` | compute_graph: lock time and mobility agree with the fit stats; damage vs a target profile |  |
 | `mcp.features.compute-graph-target` | compute_graph: target fit, default x range, errors |  |

@@ -92,5 +92,7 @@ export function batchTable(resp: any): string {
   const fmt = (v: unknown) => (typeof v === "number" ? String(Math.round(v * 1000) / 1000) : v === null || v === undefined ? "–" : String(v));
   const head = `| # | id | label | ${fields.join(" | ")} |`;
   const lines = rows.map((r) => (r.error ? `| ${r.index} | ${r.id} | ${r.label ?? ""} | error ${r.error.code}: ${r.error.message} |` : `| ${r.index} | ${r.id} | ${r.label ?? ""} | ${fields.map((f) => fmt(r.stats?.[f]) + (r.delta && typeof r.delta[f] === "number" ? ` (${r.delta[f] >= 0 ? "+" : ""}${fmt(r.delta[f])})` : "")).join(" | ")} |`));
-  return [`batch (${resp?.form ?? "?"}): ${resp?.total ?? rows.length} expanded, ${resp?.errors ?? 0} errors, ${resp?.matched ?? rows.length} matched`, "", head, `|${"---|".repeat(fields.length + 3)}`, ...lines].join("\n");
+  const pv = resp?.provenance;
+  const prov = pv ? [`provenance: sde_build ${pv.sde_build ?? "?"} (${pv.sde_hash ?? "?"}), price_source ${pv.price_source ?? "?"}${pv.snapshot_time ? `, snapshot ${pv.price_snapshot_id ?? ""} ${pv.snapshot_time}` : ""}`] : [];
+  return [`batch (${resp?.form ?? "?"}): ${resp?.total ?? rows.length} expanded, ${resp?.errors ?? 0} errors, ${resp?.matched ?? rows.length} matched`, ...prov, "", head, `|${"---|".repeat(fields.length + 3)}`, ...lines].join("\n");
 }

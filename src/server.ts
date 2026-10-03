@@ -938,7 +938,7 @@ export function createServer(ctx: ServerDeps): McpServer {
     {
       title: "Fit price",
       description:
-        "Price a fit like Pyfa's price panel: ship, fittings (modules), charges (loaded, a full module load each), drones, fighters, cargo, implants and boosters, with per-item price and quantity (price column) and the total. Toggles leave drones/fighters, cargo or implants/boosters out of the total. Same sources and caching as get_prices.",
+        "Price a fit like Pyfa's price panel: ship, fittings (modules), charges (loaded, a full module load each), drones, fighters, cargo, implants and boosters, with per-item price and quantity (price column) and the total. Toggles leave drones/fighters, cargo or implants/boosters out of the total. Same sources and caching as get_prices. On a docs/23 engine the engine prices the fit: market prices (+ your isk) are injected, items without one fall back to the engine's embedded snapshot (use_snapshot=false to disable), each line names its source, and `provenance` says which SDE / price data was used.",
       inputSchema: {
         ...fitInputShape,
         ...PriceOpts,
@@ -947,6 +947,7 @@ export function createServer(ctx: ServerDeps): McpServer {
         include_character: z.boolean().optional().describe("implants and boosters in the total (default true)"),
         price_overrides: priceInputShape.price_overrides.describe("docs/23 overrides applied by the engine (type / market group / group / category; fixed price incl. 0, or multiplier); needs an engine with docs/23 prices"),
         isk: z.record(z.string(), z.number()).optional().describe("your own prices: type id -> ISK, on top of the market prices (engine layer L3)"),
+        use_snapshot: z.boolean().optional().describe("items without a market price fall back to the engine's embedded price snapshot (docs/22; default true); false: leave them unpriced"),
       },
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
     },
@@ -963,7 +964,7 @@ export function createServer(ctx: ServerDeps): McpServer {
       const market: Record<string, number> = {};
       for (const [id, p] of r.prices) if (typeof p?.price === "number") market[String(id)] = p.price;
       const req: Record<string, any> = JSON.parse(JSON.stringify(n.request));
-      applyPriceInputs(ds, req, { price_overrides: a.price_overrides, prices: { isk: { ...market, ...(a.isk ?? {}) } }, price: true });
+      applyPriceInputs(ds, req, { price_overrides: a.price_overrides, prices: { isk: { ...market, ...(a.isk ?? {}) }, ...(a.use_snapshot === false ? { use_snapshot: false } : {}) }, price: true });
       const st: any = await calc(req as FitRequest);
       const excluded = [
         ...(a.include_drones === false ? ["drones", "fighters"] : []),

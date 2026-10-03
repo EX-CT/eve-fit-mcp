@@ -18,6 +18,7 @@ import { browseMarket, typeMarket, typeRow } from "./market.js";
 import { fitItems, HUBS, PriceService, priceConfig, SOURCES } from "./prices.js";
 import { Change, Constraints, fitInputShape, FitInputObject, FitRequestLenient, GoalSpec, priceInputShape, z } from "./schemas.js";
 import { applyPriceInputs } from "./pricing-input.js";
+import { batchTable, prepareBatch } from "./batch.js";
 import { markdownTable, pickSections, SECTIONS, summarize } from "./summary.js";
 
 export const VERSION = "0.3.1";
@@ -318,6 +319,33 @@ export function createServer(ctx: ServerDeps): McpServer {
       const out: Record<string, unknown> = { ...body, request_hash: n.hash, notes: n.notes, engine: (s as any).meta?.engine };
       if (a.include_request) out.request = n.request;
       return ok(out);
+    }),
+  );
+
+  server.registerTool(
+    "compute_batch",
+    {
+      title: "Compute a batch of fits / variants",
+      description:
+        "Many fits in one engine call (docs/23 BatchRequest, passed through to the engine; the BatchResponse comes back unchanged). Forms: `fits` [{id,label,fit,price_overrides}] (independent fits), `base` + `variants` [{id,label,patch (RFC 6902 JSON Patch on the FitRequest, plus {op:'swap_type',from,to}),price_overrides}], or `base` + `product` {axes:[{name,options|sweep}]} / `sweep` {path,values|from,to,step} (capped by max_combinations, default 2000 -> BATCH_TOO_LARGE). Output control: fields (dotted paths, incl. price.total_isk), deltas (vs base or delta_ref), filter [{field,op,value,on}], sort_by [{field,order}], top_n. Prices (engine-computed): batch-wide and per-variant price_overrides, prices.isk; each result has its own price block. Fit sources may use names, EFT text or DNA (normalised like compute_fit; patch paths refer to the normalised FitRequest, see compute_fit include_request). Per-fit errors stay in place.",
+      inputSchema: {
+        request: z.record(z.string(), z.any()).describe("BatchRequest (docs/23 §2); batch_version defaults to 1"),
+        skills: fitInputShape.skills.describe("default skills for every fit source without its own (default all_5)"),
+      },
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+    },
+    wrap(async (a) => {
+      const { request, notes } = await prepareBatch(ctx, a.request, a.skills);
+      let resp: any;
+      try {
+        resp = await ctx.engine.call("batch", request);
+      } catch (e: any) {
+        if (e?.code === "UNKNOWN_METHOD" || /unknown method/i.test(String(e?.message)))
+          throw Object.assign(new Error(`the engine has no \`batch\` method (docs/23); update eve-dogma (engine: ${(await ctx.engine.meta().catch(() => ({}) as any)).engine ?? "?"})`), { code: "UNKNOWN_METHOD" });
+        throw e;
+      }
+      const out = notes.length ? { ...resp, notes } : resp;
+      return ok(out, batchTable(resp));
     }),
   );
 

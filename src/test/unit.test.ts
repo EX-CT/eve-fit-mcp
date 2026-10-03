@@ -10,6 +10,7 @@ import { Dataset } from "../dataset.js";
 import { exportDna, parseDna } from "../dna.js";
 import { normalizeFit, requestHash } from "../fit.js";
 import { applyPriceInputs } from "../pricing-input.js";
+import { batchTable, prepareBatch } from "../batch.js";
 import { goalScore, metric } from "../metrics.js";
 import { implantSets } from "../profiles.js";
 import { DATASET } from "./helpers.js";
@@ -120,6 +121,56 @@ describe("dataset index", { skip: !existsSync(DATASET) && "dataset missing" }, (
     const untouched: Record<string, any> = { ship: { type_id: 587 } };
     applyPriceInputs(ds, untouched, {});
     assert.deepEqual(untouched, { ship: { type_id: 587 } });
+  });
+
+  test("mcp.unit.batch-prepare: compute_batch normalises fit sources and names only; the rest of the BatchRequest is verbatim", async () => {
+    const ctx = { ds, engine: noEngine, defaultSkillLevel: 5, maxBatch: 10 };
+    const input = {
+      fits: [
+        { id: "a", fit: { ship: "Rifter", modules: ["125mm Gatling AutoCannon II, EMP S"] }, price_overrides: [{ type_id: "Rifter", price: 0 }] },
+        { id: "b", fit: "587:2873;1::", skills: 3 },
+      ],
+      prices: { isk: { "587": 350000 } },
+      price_overrides: [{ category_id: 8, multiplier: 1.1 }],
+      fields: ["offense.total.dps.total", "price.total_isk"],
+      sort_by: [{ field: "offense.total.dps.total", order: "desc" }],
+      top_n: 1,
+    };
+    const { request: r, notes } = await prepareBatch(ctx, input);
+    assert.equal(r.batch_version, 1);
+    assert.equal(r.fits[0].fit.ship.type_id, 587);
+    assert.equal(r.fits[0].fit.modules[0].type_id, 2873);
+    assert.equal(r.fits[0].fit.modules[0].charge_type_id, ds.byExactName("EMP S")!.id);
+    assert.equal(r.fits[0].fit.character.skills.default_level, 5);
+    assert.deepEqual(r.fits[0].price_overrides, [{ type_id: 587, price: 0 }]);
+    assert.equal(r.fits[1].fit.character.skills.default_level, 3);
+    assert.ok(!("skills" in r.fits[1]));
+    for (const k of ["prices", "price_overrides", "fields", "sort_by", "top_n"]) assert.deepEqual(r[k], (input as any)[k], k);
+    assert.ok(Array.isArray(notes));
+    // base + variants: swap_type names resolved, JSON Patch ops verbatim, per-variant overrides resolved
+    const v = await prepareBatch(ctx, {
+      base: { ship: "Rifter", modules: ["125mm Gatling AutoCannon I"] },
+      variants: [{ id: "t2", patch: [{ op: "swap_type", from: "125mm Gatling AutoCannon I", to: "125mm Gatling AutoCannon II" }] }, { id: "heat", patch: [{ op: "replace", path: "/modules/0/state", value: "overheated" }], price_overrides: [{ type_id: "Rifter", price: 1 }] }],
+      product: { axes: [{ name: "ammo", sweep: { path: "/modules/0/charge_type_id", values: [12608, 12614] } }] },
+      deltas: true,
+    }, 4);
+    assert.equal(v.request.base.character.skills.default_level, 4);
+    assert.deepEqual(v.request.variants[0].patch, [{ op: "swap_type", from: ds.byExactName("125mm Gatling AutoCannon I")!.id, to: 2873 }]);
+    assert.deepEqual(v.request.variants[1].patch, [{ op: "replace", path: "/modules/0/state", value: "overheated" }]);
+    assert.deepEqual(v.request.variants[1].price_overrides, [{ type_id: 587, price: 1 }]);
+    assert.deepEqual(v.request.product.axes[0], { name: "ammo", sweep: { path: "/modules/0/charge_type_id", values: [12608, 12614] } });
+    await assert.rejects(prepareBatch(ctx, { fits: [{ id: "x" }] }), (e: any) => e.code === "BATCH_BAD_REQUEST");
+    await assert.rejects(prepareBatch(ctx, { fits: [{ fit: { ship: 999999999 } }] }), (e: any) => e.code === "UNKNOWN_TYPE" && /fits\/0\/fit/.test(e.path));
+  });
+
+  test("mcp.unit.batch-table: markdown view of a BatchResponse (values, deltas, per-fit errors)", () => {
+    const t = batchTable({ form: "variants", total: 2, errors: 1, matched: 2, results: [
+      { index: 0, id: "t2", label: "T2", stats: { "offense.total.dps.total": 211.3456 }, delta: { "offense.total.dps.total": 12.4 } },
+      { index: 1, id: "bad", label: "bad", error: { code: "PATCH_FAILED", message: "/modules/9" } },
+    ] });
+    assert.match(t, /2 expanded, 1 errors/);
+    assert.match(t, /\| 0 \| t2 \| T2 \| 211\.346 \(\+12\.4\) \|/);
+    assert.match(t, /error PATCH_FAILED: \/modules\/9/);
   });
 
   // projected fighters without a quantity became 1 fighter; the engine's default is the full squadron

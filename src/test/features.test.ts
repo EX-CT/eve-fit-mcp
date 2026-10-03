@@ -237,6 +237,26 @@ describe("graphs and passthrough features (engine)", { skip: !haveEngine && "eng
     assert.equal(r.price.sections.modules.items[0].source, "override:type");
   });
 
+  test("mcp.features.compute-batch: compute_batch passes the BatchRequest to the engine; results equal compute_fit one by one", async (t) => {
+    const req = {
+      base: { ship: "Rifter", modules: ["125mm Gatling AutoCannon I, EMP S", "125mm Gatling AutoCannon I, EMP S"] },
+      variants: [{ id: "t2", label: "T2 guns", patch: [{ op: "swap_type", from: "125mm Gatling AutoCannon I", to: "125mm Gatling AutoCannon II" }] }],
+      fields: ["offense.total.dps.total"],
+      deltas: true,
+    };
+    const r: any = await c.callTool({ name: "compute_batch", arguments: { request: req } });
+    if (r.isError) {
+      // the error must carry the engine's code verbatim (UNKNOWN_METHOD on engines before docs/23)
+      assert.match(r.content[0].text, /^Error: UNKNOWN_METHOD: the engine has no `batch` method/);
+      return t.todo("engine without docs/23 batch (eve-dogma 2da8150)");
+    }
+    const b = r.structuredContent;
+    assert.equal(b.form, "variants");
+    const one = await call(c, "compute_fit", { fit: { ship: "Rifter", modules: ["125mm Gatling AutoCannon II, EMP S", "125mm Gatling AutoCannon II, EMP S"] }, detail: "full", sections: ["offense"] });
+    assert.equal(b.results[0].stats["offense.total.dps.total"], one.offense.total.dps.total);
+    assert.ok(b.results[0].delta["offense.total.dps.total"] > 0);
+  });
+
   test("mcp.features.compute-graph-stats: compute_graph: lock time and mobility agree with the fit stats; damage vs a target profile", async (t) => {
     if (!graphs) return t.skip("engine has no graph RPC");
     const full = await call(c, "compute_fit", { eft: RIFTER_EFT, detail: "full", sections: ["targeting", "navigation"] });

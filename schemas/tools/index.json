@@ -80,6 +80,16 @@
     }
   },
   {
+    "name": "compute_batch",
+    "title": "Compute a batch of fits / variants",
+    "description": "Many fits in one engine call (docs/23 BatchRequest, passed through to the engine; the BatchResponse comes back unchanged). Forms: `fits` [{id,label,fit,price_overrides}] (independent fits), `base` + `variants` [{id,label,patch (RFC 6902 JSON Patch on the FitRequest, plus {op:'swap_type',from,to}),price_overrides}], or `base` + `product` {axes:[{name,options|sweep}]} / `sweep` {path,values|from,to,step} (capped by max_combinations, default 2000 -> BATCH_TOO_LARGE). Output control: fields (dotted paths, incl. price.total_isk), deltas (vs base or delta_ref), filter [{field,op,value,on}], sort_by [{field,order}], top_n. Prices (engine-computed): batch-wide and per-variant price_overrides, prices.isk; each result has its own price block. Fit sources may use names, EFT text or DNA (normalised like compute_fit; patch paths refer to the normalised FitRequest, see compute_fit include_request). Per-fit errors stay in place.",
+    "annotations": {
+      "readOnlyHint": true,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
     "name": "compare_fits",
     "title": "Compare fits",
     "description": "Compute several fits in one batch and return a metric × fit table with deltas vs the first fit (markdown + JSON). Shared skills/damage/target profiles apply to every fit unless a fit sets its own.",

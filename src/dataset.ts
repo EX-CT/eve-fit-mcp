@@ -6,6 +6,9 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
 
+/** An Error carrying an engine contract error code (UNKNOWN_TYPE, BAD_REQUEST, ...), shown as "CODE: message". */
+export const codedError = (code: string, message: string, path?: string) => Object.assign(new Error(message), { code, ...(path ? { path } : {}) });
+
 export type Kind =
   | "ship"
   | "module"
@@ -438,7 +441,7 @@ export class Dataset {
   resolve(ref: number | string, want?: Kind[]): TypeInfo {
     if (typeof ref === "number" || /^\d+$/.test(String(ref).trim())) {
       const t = this.types.get(Number(ref));
-      if (!t) throw new Error(`unknown type id ${ref}`);
+      if (!t) throw codedError("UNKNOWN_TYPE", `unknown type id ${ref}`);
       return t;
     }
     const s = String(ref).trim();
@@ -447,9 +450,9 @@ export class Dataset {
     const hits = this.search(s, { kinds: want, limit: 5 });
     if (hits.length && (hits[0].match === "alias" || hits[0].match === "exact")) return this.types.get(hits[0].type_id)!;
     const what = want ? want.join("/") : "type";
-    if (exact) throw new Error(`'${s}' is a ${exact.kind ?? exact.category}, expected ${what}`);
+    if (exact) throw codedError("BAD_REQUEST", `'${s}' is a ${exact.kind ?? exact.category}, expected ${what}`);
     const sugg = hits.map((h) => `'${h.name}' (${h.type_id})`).join(", ");
-    throw new Error(`no ${what} named '${s}'${sugg ? `; did you mean ${sugg}?` : ""}`);
+    throw codedError("UNKNOWN_TYPE", `no ${what} named '${s}'${sugg ? `; did you mean ${sugg}?` : ""}`);
   }
 
   private expandAliases(q: string): string | null {

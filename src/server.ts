@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isContractError, type FitRequest, type FitStats } from "./adapters/types.js";
 import type { Dataset, Kind, Slot } from "./dataset.js";
-import { JARGON, KINDS, SLOTS } from "./dataset.js";
+import { JARGON, KINDS, SLOTS, codedError } from "./dataset.js";
 import { exportDna, exportMultibuy } from "./dna.js";
 import { normalizeFit, type Ctx, type FitInput } from "./fit.js";
 import { applyChange, candidateModules, characterLevel, evalBatch, freeSlots, optimize, skillRequirements, suggest, toGoals } from "./helpers.js";
@@ -43,7 +43,8 @@ function ok(data: unknown, text?: string): ToolResult {
 
 function fail(e: unknown): ToolResult {
   const err: any = e;
-  const code = err?.code && typeof err.code === "string" ? `${err.code}: ` : "";
+  // engine errors keep their contract code verbatim; the MCP's own input errors are BAD_REQUEST (contract codes only)
+  const code = `${err?.code && typeof err.code === "string" && /^[A-Z][A-Z0-9_]+$/.test(err.code) ? err.code : "BAD_REQUEST"}: `;
   const path = err?.path ? ` (at ${err.path})` : "";
   return { content: [{ type: "text", text: `Error: ${code}${err?.message ?? String(e)}${path}` }], isError: true };
 }
@@ -783,7 +784,8 @@ export function createServer(ctx: ServerDeps): McpServer {
       eft: z.string().optional().describe("target fit as EFT"),
       dna: z.string().optional().describe("target fit as DNA"),
       skills: fitInputShape.skills,
-      resist_mode: z.enum(["auto", "shield", "armor", "hull", "weighted_average"]).optional().describe("which resist layer of a target fit applies (default auto)"),
+      // validated by the engine (BAD_REQUEST passes through with its code)
+      resist_mode: z.string().optional().describe("which resist layer of a target fit applies: auto (default), shield, armor, hull, weighted_average"),
     })
     .optional();
 
@@ -795,10 +797,11 @@ export function createServer(ctx: ServerDeps): McpServer {
         "One engine-computed graph for a fit (Pyfa graph window parity, CONTRACT-GRAPHS 0.2): e.g. graph=damage x_axis=distance_m y=[dps]; capacitor vs time_s; mobility speed vs time_s; lock_time vs tgt_sig_m; warp_time vs distance_m; application_profile (best ammo per distance); ewar / remote_reps vs distance_m; ecm_burst. x: explicit values or {from,to,points} (default range per axis, 21 points). `target` (damage, application_profile, ewar, remote_reps): a target profile or a target fit. Returns the series, a per-series summary (min/max/x at max) and a markdown table. Units are SI (m, s, m/s, HP/s, %).",
       inputSchema: {
         ...fitInputShape,
-        graph: z.string().describe("graph name from list_graphs, e.g. damage, capacitor, mobility"),
+        graph: z.string().nullish().describe("graph name from list_graphs, e.g. damage, capacitor, mobility (required)"),
         x_axis: z.string().optional().describe("x axis (default: the graph's first axis valid for every requested y)"),
         x: z
-          .object({ values: z.array(z.number()).max(500).optional(), from: z.number().optional(), to: z.number().optional(), points: z.number().int().min(2).max(500).optional() })
+          // values are checked in the handler so a bad value is a BAD_REQUEST tool error, not a protocol error
+          .object({ values: z.array(z.any()).max(500).optional(), from: z.number().optional(), to: z.number().optional(), points: z.number().int().min(2).max(500).optional() })
           .optional(),
         y: z.array(z.string()).optional().describe("series (default: every series defined for the x axis)"),
         target: GraphTarget,
@@ -809,6 +812,10 @@ export function createServer(ctx: ServerDeps): McpServer {
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
     },
     wrap(async (a) => {
+      if (!a.graph) throw codedError("BAD_REQUEST", "graph is required (see list_graphs)", "graph");
+      a.x?.values?.forEach((v: unknown, i: number) => {
+        if (typeof v !== "number" || !Number.isFinite(v)) throw codedError("BAD_REQUEST", `x.values[${i}] must be a finite number (got ${JSON.stringify(v)})`, `x.values[${i}]`);
+      });
       const specs = await graphSpecs(ctx.engine);
       const spec = specs.graphs[a.graph];
       if (!spec) throw Object.assign(new Error(`unknown graph '${a.graph}' (graphs: ${Object.keys(specs.graphs).join(", ")})`), { code: "UNKNOWN_GRAPH" });

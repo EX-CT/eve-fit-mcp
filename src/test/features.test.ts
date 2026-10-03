@@ -200,6 +200,25 @@ describe("graphs and passthrough features (engine)", { skip: !haveEngine && "eng
     assert.ok(dmg.axes.some((a: any) => a.axis === "distance_m" && a.unit === "m"));
   });
 
+  // regressions from eve3's bench run (graphs errors group 8/20 through MCP 8c6b93d): tool errors carry the engine's
+  // contract code ("Error: CODE: message"), MCP-side input errors are BAD_REQUEST, explicit x / y go to the engine as given
+  test("mcp.features.contract-error-codes: engine error codes pass through verbatim; MCP input errors are BAD_REQUEST", async (t) => {
+    if (!graphs) return t.skip("engine has no graph RPC");
+    const g = { eft: RIFTER_EFT, graph: "damage", x: { values: [0, 1000] }, y: ["dps"] };
+    assert.match(await callErr(c, "compute_graph", { ...g, eft: undefined, fit: { ship: { type_id: 999999999 }, modules: [] } }), /^Error: UNKNOWN_TYPE: /);
+    assert.match(await callErr(c, "compute_fit", { fit: { ship: "Rifter", modules: [{ type_id: 999999998, slot: "low" }] } }), /^Error: UNKNOWN_TYPE: /);
+    assert.match(await callErr(c, "compute_graph", { ...g, eft: undefined }), /^Error: BAD_REQUEST: give exactly one of/);
+    assert.match(await callErr(c, "compute_graph", { ...g, graph: null }), /^Error: BAD_REQUEST: graph is required/);
+    assert.match(await callErr(c, "compute_graph", { ...g, graph: "nope" }), /^Error: UNKNOWN_GRAPH: /);
+    assert.match(await callErr(c, "compute_graph", { ...g, x: { values: [0, "1000"] } }), /^Error: BAD_REQUEST: x\.values\[1\]/);
+    assert.match(await callErr(c, "compute_graph", { ...g, x: { values: [0, null] } }), /^Error: BAD_REQUEST: x\.values\[1\]/);
+    assert.match(await callErr(c, "compute_graph", { ...g, y: [] }), /^Error: BAD_REQUEST: /);
+    assert.match(await callErr(c, "compute_graph", { ...g, target: { eft: RIFTER_EFT, resist_mode: "plasma" } }), /^Error: BAD_REQUEST: /);
+    const empty = await call(c, "compute_graph", { ...g, x: { values: [] }, y: ["dps", "volley"] });
+    assert.deepEqual(empty.x, []);
+    assert.deepEqual(empty.series, { dps: [], volley: [] });
+  });
+
   test("mcp.features.compute-graph-stats: compute_graph: lock time and mobility agree with the fit stats; damage vs a target profile", async (t) => {
     if (!graphs) return t.skip("engine has no graph RPC");
     const full = await call(c, "compute_fit", { eft: RIFTER_EFT, detail: "full", sections: ["targeting", "navigation"] });

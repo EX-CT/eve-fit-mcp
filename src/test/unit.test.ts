@@ -80,6 +80,35 @@ describe("dataset index", { skip: !existsSync(DATASET) && "dataset missing" }, (
     assert.equal(a.hash, b.hash);
     assert.equal(requestHash({ b: 1, a: 2 }), requestHash({ a: 2, b: 1 }));
   });
+
+  // regressions from eve3's bench run through MCP 8c6b93d (tools/mcp_batch.py): 13 core / 4 ext / 2 ext-unit cases
+  // sent `fleet: {booster_fits: []}` inside projected / booster fits and were rejected as "cannot nest"
+  test("mcp.unit.empty-nested-arrays: empty fleet.booster_fits / projected / buffs are accepted at every depth", async () => {
+    const ctx = { ds, engine: noEngine, defaultSkillLevel: 5, maxBatch: 10 };
+    const empty = { booster_fits: [], buffs: [] };
+    const inner = { ship: { type_id: 587 }, modules: [], fleet: empty, projected: [] };
+    const a = await normalizeFit(ctx, {
+      fit: { ship: "Rifter", modules: [], fleet: { booster_fits: [inner], buffs: [] }, projected: [{ kind: "fit", fit: inner }] },
+    });
+    const r: any = a.request;
+    assert.equal(r.fleet.booster_fits.length, 1);
+    assert.deepEqual(r.fleet.booster_fits[0].fleet.booster_fits, []);
+    assert.deepEqual(r.projected[0].fit.fleet.booster_fits, []);
+    assert.deepEqual(r.projected[0].fit.projected, []);
+    // a non-empty nested list is still an error (the contract allows one level)
+    await assert.rejects(normalizeFit(ctx, { fit: { ship: "Rifter", projected: [{ kind: "fit", fit: { ...inner, projected: [{ kind: "fit", fit: inner }] } }] } }), /cannot nest/);
+  });
+
+  // projected fighters without a quantity became 1 fighter; the engine's default is the full squadron
+  test("mcp.unit.projected-fighter-default-quantity: no quantity is left to the engine (full squadron); explicit counts kept", async () => {
+    const ctx = { ds, engine: noEngine, defaultSkillLevel: 5, maxBatch: 10 };
+    const id = ds.byExactName("Templar II")!.id;
+    const a: any = (await normalizeFit(ctx, { fit: { ship: "Rifter", projected: [{ kind: "fighter", fighter: { type_id: id } }, { kind: "fighter", fighter: { type_id: id, quantity: 4 } }, { kind: "fighter", fighter: "Templar II x3" }] } })).request;
+    assert.equal(a.projected[0].fighter.type_id, id);
+    assert.ok(!("quantity" in a.projected[0].fighter), JSON.stringify(a.projected[0]));
+    assert.equal(a.projected[1].fighter.quantity, 4);
+    assert.equal(a.projected[2].fighter.quantity, 3);
+  });
 });
 
 test("mcp.unit.metrics-goal-score: metrics and goal score", () => {

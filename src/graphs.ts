@@ -77,7 +77,8 @@ export interface XSpec {
 }
 
 export function sampleX(graph: string, axis: string, x: XSpec | undefined): number[] {
-  if (x?.values?.length) return x.values;
+  // explicit values are used as given, even an empty list (the engine answers with empty series)
+  if (Array.isArray(x?.values)) return x.values;
   let [lo, hi] = DEFAULT_RANGES[axis] ?? [0, 100];
   if (graph === "warp_time" && axis === "distance_m") [lo, hi] = [0, 50 * AU];
   const from = x?.from ?? lo;
@@ -94,7 +95,8 @@ export function pickAxes(spec: GraphSpec, graph: string, axis?: string, y?: stri
   const series = spec.series ?? {};
   if (axis && !axes.includes(axis)) throw new EngineError("BAD_AXIS", `graph ${graph} has no x axis '${axis}' (axes: ${axes.join(", ")})`, "x.axis");
   const ax = axis ?? axes.find((a) => (y?.length ? y : Object.keys(series)).every((s) => series[s]?.by_axis?.[a] !== undefined)) ?? axes[0];
-  const ys = y?.length ? y : Object.keys(series).filter((s) => series[s]?.by_axis?.[ax] !== undefined);
+  // an explicit y list goes to the engine as given (an empty one is the engine's BAD_REQUEST); omitted = every series
+  const ys = y ?? Object.keys(series).filter((s) => series[s]?.by_axis?.[ax] !== undefined);
   return { axis: ax, y: ys };
 }
 

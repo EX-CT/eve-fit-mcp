@@ -171,6 +171,24 @@ describe("prices (PRC-001..003): sources, cache, offline", () => {
       const nod = await call(c, "price_fit", { eft: RIFTER_EFT, include_drones: false });
       assert.equal(nod.total, r.total - 20000);
       assert.deepEqual(nod.excluded, ["drones", "fighters"]);
+      assert.equal(r.priced_by, "mcp-legacy", "engine 2da8150 has no docs/23 price block");
+    });
+    test("mcp.features.price-fit-engine: price_fit hands market prices (+ own isk) and overrides to the engine; legacy sum only for old engines", async () => {
+      const own = await call(c, "price_fit", { eft: RIFTER_EFT, isk: { "2048": 900000 } });
+      if (own.priced_by === "engine") {
+        // docs/23: market table injected (L3), own isk wins per type, override fixed 0 (L2) stops the chain
+        const o = await call(c, "price_fit", { eft: RIFTER_EFT, isk: { "2048": 900000 }, price_overrides: [{ type_id: "Rifter", price: 0 }] });
+        assert.equal(own.price.sections.ship.items[0].unit_isk, 500000);
+        assert.ok(own.price.sections.modules.items.some((x: any) => x.type_id === 2048 && x.unit_isk === 900000));
+        assert.equal(o.price.sections.ship.items[0].unit_isk, 0);
+        assert.equal(o.price.sections.ship.items[0].source, "override:type");
+        assert.equal(o.price.total_isk, own.price.total_isk - 500000);
+        return;
+      }
+      assert.equal(own.priced_by, "mcp-legacy");
+      assert.equal(own.items.find((x: any) => x.type_id === 2048).unit_price, 900000, "own isk used by the legacy path too");
+      assert.ok(!own.missing.includes("Damage Control II"));
+      assert.match(await callErr(c, "price_fit", { eft: RIFTER_EFT, price_overrides: [{ type_id: 587, price: 0 }] }), /^Error: UNSUPPORTED: price_overrides need an engine with docs\/23/);
       const fw = await call(c, "get_prices", { types: ["Rifter"], source: "fuzzwork", system: "jita" });
       assert.equal(fw.prices[0].price, 600000);
       assert.equal(fw.system, "jita");

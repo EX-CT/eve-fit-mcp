@@ -945,6 +945,8 @@ export function createServer(ctx: ServerDeps): McpServer {
         include_drones: z.boolean().optional().describe("drones and fighters in the total (default true)"),
         include_cargo: z.boolean().optional().describe("cargo in the total (default true)"),
         include_character: z.boolean().optional().describe("implants and boosters in the total (default true)"),
+        price_overrides: priceInputShape.price_overrides.describe("docs/23 overrides applied by the engine (type / market group / group / category; fixed price incl. 0, or multiplier); needs an engine with docs/23 prices"),
+        isk: z.record(z.string(), z.number()).optional().describe("your own prices: type id -> ISK, on top of the market prices (engine layer L3)"),
       },
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
     },
@@ -956,6 +958,21 @@ export function createServer(ctx: ServerDeps): McpServer {
         return cap > 0 && vol > 0 ? Math.max(1, Math.floor(cap / vol + 1e-9)) : 1;
       });
       const r = await prices.lookup(items.map((i) => i.type_id), { source: a.source, system: a.system });
+      // docs/23: the engine prices the fit. The MCP only supplies the market table (+ the user's own prices) as
+      // injected prices and passes the overrides; totals, multipliers and the breakdown come from the engine.
+      const market: Record<string, number> = {};
+      for (const [id, p] of r.prices) if (typeof p?.price === "number") market[String(id)] = p.price;
+      const req: Record<string, any> = JSON.parse(JSON.stringify(n.request));
+      applyPriceInputs(ds, req, { price_overrides: a.price_overrides, prices: { isk: { ...market, ...(a.isk ?? {}) } }, price: true });
+      const st: any = await calc(req as FitRequest);
+      if (st.price) {
+        const pb = st.price;
+        const isk = (v: number) => `${round(v / 1e6, 2)}M`;
+        const text = [`Fit price (engine; market ${r.source}${r.source === "esi" ? "" : ` ${r.system}`}${r.stale ? ", cached/stale" : ""}): ${isk(pb.total_isk ?? 0)} ISK${pb.complete === false ? ` (${pb.missing?.length ?? 0} items unpriced)` : ""}`, ...Object.entries<any>(pb.sections ?? {}).filter(([, v]) => v?.items?.length).map(([k, v]) => `- ${k}: ${isk(v.total_isk ?? 0)}`)].join("\n");
+        return ok({ priced_by: "engine", market_source: r.source, system: r.system, as_of: r.as_of ? new Date(r.as_of).toISOString() : null, stale: r.stale, price: pb, ...(st.provenance ? { provenance: st.provenance } : {}), notes: [...n.notes, ...r.notes], request_hash: n.hash }, text);
+      }
+      if (a.price_overrides?.length) throw codedError("UNSUPPORTED", "price_overrides need an engine with docs/23 prices (the current engine returns no price block)");
+      // legacy path for engines before docs/23 (no price block): MCP-side sum of market prices
       const excluded = new Set<string>([
         ...(a.include_drones === false ? ["drones", "fighters"] : []),
         ...(a.include_cargo === false ? ["cargo"] : []),
@@ -964,7 +981,7 @@ export function createServer(ctx: ServerDeps): McpServer {
       const sections: Record<string, number> = {};
       let total = 0;
       const rows = items.map((i) => {
-        const p = r.prices.get(i.type_id)?.price ?? null;
+        const p = a.isk?.[String(i.type_id)] ?? r.prices.get(i.type_id)?.price ?? null;
         const value = p === null ? null : p * i.quantity;
         sections[i.section] = (sections[i.section] ?? 0) + (value ?? 0);
         if (value !== null && !excluded.has(i.section)) total += value;
@@ -983,7 +1000,8 @@ export function createServer(ctx: ServerDeps): McpServer {
           excluded: [...excluded],
           items: rows,
           missing: rows.filter((x) => x.unit_price === null).map((x) => x.name),
-          notes: [...n.notes, ...r.notes],
+          priced_by: "mcp-legacy",
+          notes: [...n.notes, ...r.notes, "engine without docs/23 prices: summed by the MCP (legacy)"],
           request_hash: n.hash,
         },
         text,

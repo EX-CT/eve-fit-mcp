@@ -575,6 +575,70 @@
     "include_character": {
       "description": "implants and boosters in the total (default true)",
       "type": "boolean"
+    },
+    "price_overrides": {
+      "description": "docs/23 overrides applied by the engine (type / market group / group / category; fixed price incl. 0, or multiplier); needs an engine with docs/23 prices",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type_id": {
+            "description": "type id or name",
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "market_group_id": {
+            "description": "market group id or path (includes child groups)",
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "group_id": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "category_id": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "price": {
+            "description": "fixed ISK per unit (0 = free, e.g. self-built / own stock)",
+            "type": "number"
+          },
+          "multiplier": {
+            "description": "factor on the price from the next lower layer",
+            "type": "number"
+          }
+        },
+        "additionalProperties": {}
+      }
+    },
+    "isk": {
+      "description": "your own prices: type id -> ISK, on top of the market prices (engine layer L3)",
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {
+        "type": "number"
+      }
     }
   }
 }

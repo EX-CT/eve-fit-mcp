@@ -61,7 +61,45 @@ Prompts: `fit_for_role`, `review_fit`, `explain_stat`, `compare_options`.
 JSON Schemas of all tool inputs are in [`schemas/tools/`](schemas/tools) (`npm run schemas` regenerates them
 from the live server). The contract schemas are in `schemas/fit-request.schema.json` / `fit-stats.schema.json`.
 
-## Install
+## Quick install (release package)
+
+Every `v*` tag publishes a [GitHub Release](https://github.com/EX-CT/eve-fit-mcp/releases) with a prebuilt npm
+tarball (`eve-fit-mcp.tgz`, plus `SHA256SUMS`). Nothing is published to the npm registry. Install the package
+straight from the release.
+
+1. **Engine:** any contract engine. The default is `eve-dogma` on `PATH`:
+   `cargo install --git https://github.com/EX-CT/eve-dogma-rs` (or set `EVE_DOGMA_BIN`).
+2. **Dataset:** download the latest `dataset-*.json.gz` from
+   [EX-CT/eve-sde-pipeline releases](https://github.com/EX-CT/eve-sde-pipeline/releases/latest):
+   `gh release download -R EX-CT/eve-sde-pipeline -p 'dataset-*.json.gz'`.
+   The release's `manifest.json` names the file and its SHA-256.
+3. **Add the server to your client.** Replace `/path/to/dataset.json.gz` with the file from step 2.
+
+   * **Cursor (one click):** [![Add eve-fit MCP server to Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=eve-fit&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIi0tcGFja2FnZT1odHRwczovL2dpdGh1Yi5jb20vRVgtQ1QvZXZlLWZpdC1tY3AvcmVsZWFzZXMvbGF0ZXN0L2Rvd25sb2FkL2V2ZS1maXQtbWNwLnRneiIsImV2ZS1maXQtbWNwIl0sImVudiI6eyJFVkVfRE9HTUFfREFUQVNFVCI6Ii9wYXRoL3RvL2RhdGFzZXQuanNvbi5neiJ9fQ%3D%3D)
+     then edit `EVE_DOGMA_DATASET` in the install dialog.
+   * **Claude Code:**
+     `claude mcp add eve-fit -e EVE_DOGMA_DATASET=/path/to/dataset.json.gz -- npx -y --package=https://github.com/EX-CT/eve-fit-mcp/releases/latest/download/eve-fit-mcp.tgz eve-fit-mcp`
+   * **VS Code:**
+     `code --add-mcp '{"name":"eve-fit","command":"npx","args":["-y","--package=https://github.com/EX-CT/eve-fit-mcp/releases/latest/download/eve-fit-mcp.tgz","eve-fit-mcp"],"env":{"EVE_DOGMA_DATASET":"/path/to/dataset.json.gz"}}'`
+   * **Claude Desktop / any `mcpServers` JSON:**
+
+     ```json
+     {
+       "mcpServers": {
+         "eve-fit": {
+           "command": "npx",
+           "args": ["-y", "--package=https://github.com/EX-CT/eve-fit-mcp/releases/latest/download/eve-fit-mcp.tgz", "eve-fit-mcp"],
+           "env": { "EVE_DOGMA_DATASET": "/path/to/dataset.json.gz" }
+         }
+       }
+     }
+     ```
+
+To pin a version, replace `latest/download/eve-fit-mcp.tgz` with `download/v0.1.0/eve-fit-mcp-0.1.0.tgz`. To install
+globally, run `npm install -g https://github.com/EX-CT/eve-fit-mcp/releases/latest/download/eve-fit-mcp.tgz` and use `"command": "eve-fit-mcp"`. Check the install with
+`npx -y --package=https://github.com/EX-CT/eve-fit-mcp/releases/latest/download/eve-fit-mcp.tgz eve-fit-mcp --help`.
+
+## Install from source
 
 ```bash
 git clone https://github.com/EX-CT/eve-fit-mcp && cd eve-fit-mcp
